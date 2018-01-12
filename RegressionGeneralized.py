@@ -13,37 +13,20 @@ from sklearn.metrics import mean_squared_error
 from PatternStore import addPattern
 import PatternFinder as pf
 
-
-def formQuery(fixed, variable, aggFunc, value, tableName, all):
+def formQuery(fixed, variable, aggFunc, value, tableName):
     
-    vStr = ','.join(map(str, variable))
-    fStr = ','.join(map(str, fixed))
-
-    vCond = ' is not null and '.join(map(str, variable))
-    fCond = ' is not null and '.join(map(str, fixed))
-
-    for v in variable:
-        all.remove(v)
-
-    for f in fixed:
-        all.remove(f)
-
-    allCond = ' is null and '.join(all)
-
-    # query = "SELECT " + aggFunc + "_" + value + ", " + fStr + ", " + vStr +
-    # "  FROM " + tableName+"_datacube" +" where " + fStr + ", " + vStr +
-    #  " ORDER BY " + vStr
-
-    query = "SELECT "+value+"_"+aggFunc+","+fStr+","+vStr+" FROM "+tableName+\
-            "_datacube WHERE "+vCond+" is not null and "+fCond+\
-            " is not null and "+allCond+" is null ORDER BY "+vStr
-
-    # print('Query::', query)
+    vStr = ','.join(map(str,variable))
+    fStr = ','.join(map(str,fixed))
+    
+    query = "SELECT " +aggFunc+"(" + value + "), " + fStr + ", " + vStr + "  FROM " + tableName  +\
+            " GROUP BY " + fStr + ", " + vStr + " ORDER BY " + vStr
+    
+    #print('Query::', query)
 
     return query
 
 
-def performLinearRegression(x, y, r):
+def performLinearRegression(x ,y, r):
     
     lr = LinearRegression(normalize=True)
     lr.fit(x,y)
@@ -61,7 +44,6 @@ def performLinearRegression(x, y, r):
         
     return float(slope), rmse, ytest, scoreLR
 
-
 def plotLinearRegression(x, y, yPltLR, scoreLR, fixed):
     
     lw = 2
@@ -77,10 +59,9 @@ def plotLinearRegression(x, y, yPltLR, scoreLR, fixed):
     plt.legend(loc='lower right')
     #plt.show()
     
-    pf.pdf.savefig(fig)
+    #pf.pdf.savefig(fig)
     
     return
-
 
 def formDictionary(curs, dictFixed, fixed, variable):
     
@@ -136,19 +117,17 @@ def fitRegressionModel(dictFixed, fixed, variable, aggFunc, value):
         
         slopeLR, rmseLR, yPltLR, scoreLR = performLinearRegression(x, y, r)
         
-        if slopeLR > 0 and scoreLR > 0.7:
+        if(slopeLR > 0 and scoreLR > 0.7):
             validPatterns = validPatterns + 1
-            addPattern(fixed, fixedVar, variable, aggFunc, value,
-                       'increasing', scoreLR)
-            plotLinearRegression(x, y, yPltLR, scoreLR, fixedVar)
+            addPattern(fixed, fixedVar, variable, aggFunc, value, 'increasing', scoreLR)
+            #plotLinearRegression(x, y, yPltLR, scoreLR, fixedVar)
             
-        elif slopeLR < 0 and scoreLR > 0.7:
+        elif(slopeLR < 0 and scoreLR > 0.7):
             validPatterns = validPatterns + 1
-            addPattern(fixed, fixedVar, variable, aggFunc, value,
-                       'decreasing', scoreLR)
-            plotLinearRegression(x, y, yPltLR, scoreLR, fixedVar)
+            addPattern(fixed, fixedVar, variable, aggFunc, value, 'decreasing', scoreLR)
+            #plotLinearRegression(x, y, yPltLR, scoreLR, fixedVar)
                   
-        plotLinearRegression(x, y, yPltLR, scoreLR, fixed)
+        #plotLinearRegression(x, y, yPltLR, scoreLR, fixed)
     
-    addPattern(fixed, None, variable, aggFunc, value, None,
-               (validPatterns * 100 / len(dictFixed)))
+    addPattern(fixed, "none", variable, aggFunc, value, "linear", (validPatterns * 100 / len(dictFixed)))
+        

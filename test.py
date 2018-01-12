@@ -8,13 +8,12 @@ Created on Fri Dec  1 02:21:26 2017
 
 from PatternFinder import PatternFinder
 
-values = ['open', 'high', 'low', 'close', 'volume', 'split_ratio', 'adj_open',
-          'adj_high', 'adj_low', 'adj_close', 'adj_volume']
+values = ["pubcount"]
 #values = ['open', 'high', 'low', 'volume']
-time = ["year", "month"]
+time = ["year"]
 dimensions = []
-categories = ["ticker"]
-tableName = "stock"
-p = PatternFinder(time, categories, dimensions, values, "stock")
+categories = ["name","pubkey"]
+tableName = "publication"
+p = PatternFinder(time, categories, dimensions, values, tableName)
 
 p.findPatterns()

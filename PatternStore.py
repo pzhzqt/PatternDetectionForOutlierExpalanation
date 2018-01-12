@@ -26,19 +26,12 @@ def create_table_object(tablename):
 def addPattern(fixed, fixedvalue, variable, aggfunction, aggvalue,
                pattern, metric):
 
-    fixed_string = ','.join(fixed)
-    variable_string = ','.join(variable)
-
     metadata.create_all(pf.engine)
 
     Session = sessionmaker(bind=pf.engine)
     session = Session()
-    insert = Pattern.insert().values(fixed=fixed_string,
-                                     fixedvalue=fixedvalue,
-                                     variable=variable_string,
-                                     aggfunction=aggfunction,
-                                     aggvalue=aggvalue,
-                                     pattern=pattern,
-                                     metric=metric)
+    insert = Pattern.insert().values(fixed=fixed, fixedvalue=fixedvalue,
+                          variable=variable, aggfunction=aggfunction,
+                          aggvalue=aggvalue, pattern=pattern, metric=metric)
     session.execute(insert)
     session.commit()

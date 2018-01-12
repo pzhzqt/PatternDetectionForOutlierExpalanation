@@ -5,18 +5,12 @@ open decimal,
 high decimal,
 low decimal,
 close decimal,
-volume decimal,
-ex_dividend decimal,
-split_ratio decimal,
-adj_open decimal,
-adj_high decimal,
-adj_low decimal,
 adj_close decimal,
-adj_volume decimal
+volume decimal
 );
 
 
-COPY StockData FROM '/Users/deeptichavan/Downloads/dataAll.csv' WITH (FORMAT csv);
+COPY StockData FROM 'dataAll.csv' WITH (FORMAT csv);
 
 
 create table stock(
@@ -29,23 +23,17 @@ open decimal,
 high decimal,
 low decimal,
 close decimal,
-volume decimal,
-ex_dividend decimal,
-split_ratio decimal,
-adj_open decimal,
-adj_high decimal,
-adj_low decimal,
 adj_close decimal,
-adj_volume decimal
+volume decimal
 );
 
 
-insert into stock (ticker, date, month, day, year, open ,  high ,  low , close, volume , ex_dividend ,  split_ratio ,  adj_open , adj_high ,  adj_low ,  adj_close ,  adj_volume  ) 
+insert into stock (ticker, date, month, day, year, open ,  high ,  low , close, volume , adj_close  ) 
 select sd.ticker, sd.date, 
 EXTRACT(MONTH FROM sd.date) as month, 
 EXTRACT(DAY FROM sd.date) as day, 
 EXTRACT(YEAR FROM sd.date) as year, 
-sd.open ,  sd.high ,  sd.low ,  sd.volume  , sd.close , sd.ex_dividend ,  sd.split_ratio ,  sd.adj_open , sd.adj_high ,  sd.adj_low ,  sd.adj_close ,  sd.adj_volume  
+sd.open ,  sd.high ,  sd.low ,  sd.volume  , sd.close , sd.adj_close
 from StockData as sd
 
 
@@ -54,11 +42,5 @@ open decimal,
 high decimal,
 low decimal,
 close decimal,
-volume decimal,
-exdividend decimal,
-splitratio decimal,
-adjopen decimal,
-adjhigh decimal,
-adjlow decimal,
 adjclose decimal,
-adjvolume decimal
+volume decimal
