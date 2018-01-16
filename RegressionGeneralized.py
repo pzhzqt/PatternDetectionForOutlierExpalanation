@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Nov 22 16:05:11 2017
-
-@author: deeptichavan
-"""
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -44,24 +39,6 @@ def performLinearRegression(x ,y, r):
         
     return float(slope), rmse, ytest, scoreLR
 
-def plotLinearRegression(x, y, yPltLR, scoreLR, fixed):
-    
-    lw = 2
-    fig = plt.figure()
-    fig.set_size_inches(10.5, 6.5)
-    #plt.xlabel('months')
-    #plt.ylabel(label)
-    plt.suptitle("Fixed:: " + ','.join(map(str,fixed)) +  "  Score :: " + str(scoreLR)) 
-      
-    plt.scatter(x,y)
-    plt.plot(x, yPltLR, color='navy', linewidth=lw, label='Linear Regressor')
-    
-    plt.legend(loc='lower right')
-    #plt.show()
-    
-    #pf.pdf.savefig(fig)
-    
-    return
 
 def formDictionary(curs, dictFixed, fixed, variable):
     

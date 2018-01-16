@@ -5,12 +5,9 @@ import PatternStore
 import Clustering
 import RegressionGeneralized as reg
 from sqlalchemy import create_engine
-#from matplotlib.backends.backend_pdf import PdfPages
-
 
 engine = None
 conn = None
-#pdf = PdfPages('PatternsStock.pdf')
 
 class PatternFinder:
     categories = None
@@ -46,23 +43,6 @@ class PatternFinder:
         self.values = values
         self.dimensions = dimensions+time
         #for testing
-
-    
-        '''
-        #org begin
-        global conn
-        reduced_dimensions, reduced_values = Clustering.Cluster(dimensions,
-                                                                values,
-                                                                self.data,
-                                                                conn)
-        print(reduced_dimensions)
-        print(reduced_values)
-        
-        
-        self.dimensions = reduced_dimensions + time
-        self.values = reduced_values
-        #org end
-        '''
         
         PatternStore.create_table_object(self.data)
         self.formDatacube()
@@ -86,64 +66,10 @@ class PatternFinder:
                     for val in self.values:
                         self.findConstants(f, v, val)
 
-        # for f in self.categories:
-        #     #categories in variable
-        #     for val in self.values:
-        #         self.findConstants2(f, val)
-        #
-        # print('Dimension:: ', self.dimensions)
-        # #categories as fixed
-        # for f in self.categories:
-        #
-        #     #categories in variable
-        #     for v in self.categories:
-        #             self.patternList.append(self.findConstant(f, v, val)
-        #                                     for val in self.values)
-        #
-        #     #dimensions in variable
-        #     '''
-        #     for v in self.dimensions:
-        #         for val in self.values:
-        #             self.findRegressions(f, v, "avg",val)
-        #     '''
-        #
-        #     v = ['month', 'day']
-        #     f = ['ticker', 'year']
-        #     for val in self.values:
-        #         self.findRegressions(f, v, "avg", val)
-        #         self.findConstants(f, v, val)
-
-                
-
-                    
-                                                        
-            '''
-            self.patternList.append(self.findRegressions(f, v, val)
-                                        for val in self.values)
-            self.patternList.append(self.findConstants(f, v, val)
-                                        for val in self.values)
-            '''
-
-        #dimensions as fixed
-        # for f in self.dimensions:
-        #
-        #     # categories in variable
-        #     for v in self.categories:
-        #         self.patternList.append(self.findConstant(f, v, val)
-        #                                 for val in self.values)
-        #
-        #     # dimensions in variable
-        #     for v in self.dimensions:
-        #         self.patternList.append(self.findRegressions(f, v, val)
-        #                                 for val in self.values)
-        #         self.patternList.append(self.findConstant(f, v, val)
-        #                                 for val in self.values)
-
         #close all database connections
         global engine
         engine.dispose()
         conn.close()
-        #pdf.close()
 
     def get_subsets(self, l):
         n = len(l)
@@ -204,16 +130,13 @@ class PatternFinder:
         values_std = values_std + " decimal" if len(values_std_cols) > 0 \
             else values_std
 
-        #Create table for datacube
         query_create_table = "CREATE TABLE "+self.data+"_datacube(" +\
                              categories_str+"," +\
                              dimensions_str+", " +\
                              values_avg+", " +\
                              values_std+" );"
         print(query_create_table)
-        # self.cursor.execute(query_create_table)
 
-        #Insert into datacube table
         insert_list = self.categories + self.dimensions + \
                       values_avg_cols + values_std_cols
         select_list = self.categories+self.dimensions
@@ -225,14 +148,3 @@ class PatternFinder:
                        " ) SELECT "+select+","+avg+","+std+" FROM "+self.data+\
                        " GROUP BY CUBE ( "+select+" );"
         print(query_insert)
-        # self.cursor.execute(query_insert)
-    
-'''       
-    def findConstants2(self, fixed, value):
-        query = Clustering.formQuery2(fixed, value, self.data)
-        self.cursor.execute(query)                
-        dictFixed = {}
-        Clustering.formDictionary2(self.cursor, dictFixed)
-        Clustering.findConstants2(dictFixed, fixed, value)
-        return []
-'''
