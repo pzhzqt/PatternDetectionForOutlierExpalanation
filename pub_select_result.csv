@@ -1,0 +1,391 @@
+id,fixed,fixedvalue,variable,aggfunction,aggvalue,pattern,metric
+1,{name},'Lizhu Zhou',{year},sum,pubcount,decreasing,0.79999999999999993
+2,{name},'Yan Liu 0002',{year},sum,pubcount,decreasing,0.75000000000000011
+3,{name},'Yong Yu',{year},sum,pubcount,decreasing,0.8251959011452682
+4,{name},'Anastassia Ailamaki',{year},sum,pubcount,increasing,0.79999999999999982
+5,{name},'Kyu-Young Whang',{year},sum,pubcount,decreasing,0.75
+6,{name},'Sunita Sarawagi',{year},sum,pubcount,decreasing,0.703125
+7,{name},'Jun Liu',{year},sum,pubcount,decreasing,0.85263157894736841
+8,{name},'Sergey Melnik',{year},sum,pubcount,increasing,0.72023809523809534
+9,{name},'Lirong Xia',{year},sum,pubcount,decreasing,0.77142857142857135
+10,{name},'Vinayak R. Borkar',{year},sum,pubcount,decreasing,0.8541871921182268
+11,{name},none,{year},sum,pubcount,linear,1.8050541516245486
+12,{pubkey},none,{year},sum,pubcount,linear,0.0
+13,"{name,pubkey}",:'Philip S. Yu': 'conf/vldb',{year},sum,pubcount,decreasing,0.8928571428571429
+14,"{name,pubkey}",:'Minos N. Garofalakis': 'conf/icde',{year},sum,pubcount,decreasing,0.75
+15,"{name,pubkey}",:'Jayavel Shanmugasundaram': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+16,"{name,pubkey}",:'S. Sudarshan 0001': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+17,"{name,pubkey}",:'Lu Qin': 'conf/sigmod',{year},sum,pubcount,increasing,1.0
+18,"{name,pubkey}",:'Michael R. Lyu': 'conf/nips',{year},sum,pubcount,increasing,0.74999999999999989
+19,"{name,pubkey}",:'Ariel Felner': 'conf/aaai',{year},sum,pubcount,increasing,0.76190476190476197
+20,"{name,pubkey}",:'Dimitrios Gunopulos': 'journals/vldb',{year},sum,pubcount,increasing,0.74999999999999989
+21,"{name,pubkey}",:'Yannis Velegrakis': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+22,"{name,pubkey}",:'Mirek Riedewald': 'conf/icde',{year},sum,pubcount,decreasing,0.75
+23,"{name,pubkey}",:'Ion Stoica': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+24,"{name,pubkey}",:'Christian S. Jensen': 'conf/sigmod',{year},sum,pubcount,increasing,0.74999999999999989
+25,"{name,pubkey}",:'Ashraf Aboulnaga': 'journals/pvldb',{year},sum,pubcount,decreasing,0.75
+26,"{name,pubkey}",:'Alessandro Lazaric': 'conf/nips',{year},sum,pubcount,increasing,0.79999999999999993
+27,"{name,pubkey}",:'Erhard Rahm': 'conf/icde',{year},sum,pubcount,increasing,1.0
+28,"{name,pubkey}",:'Ji-Rong Wen': 'conf/icde',{year},sum,pubcount,decreasing,1.0
+29,"{name,pubkey}",:'Anish Das Sarma': 'conf/sigmod',{year},sum,pubcount,increasing,1.0
+30,"{name,pubkey}",:'Ying Zhang': 'journals/vldb',{year},sum,pubcount,increasing,1.0
+31,"{name,pubkey}",:'Joseph M. Hellerstein': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+32,"{name,pubkey}",:'Minos N. Garofalakis': 'conf/vldb',{year},sum,pubcount,decreasing,0.74999999999999989
+33,"{name,pubkey}",:'C+\xacsar A. Galindo-Legaria': 'conf/icde',{year},sum,pubcount,increasing,0.74999999999999989
+34,"{name,pubkey}",:'Zachary G. Ives': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+35,"{name,pubkey}",:'Alan Fern': 'conf/icml',{year},sum,pubcount,decreasing,0.75
+36,"{name,pubkey}",:'Xiaofang Zhou': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+37,"{name,pubkey}",:'Nan Zhang 0004': 'conf/sigmod',{year},sum,pubcount,decreasing,0.80000000000000016
+38,"{name,pubkey}",:'Bee-Chung Chen': 'conf/vldb',{year},sum,pubcount,decreasing,0.74999999999999989
+39,"{name,pubkey}",:'Christoph Koch': 'conf/sigmod',{year},sum,pubcount,decreasing,0.89999999999999991
+40,"{name,pubkey}",:'Moshe Tennenholtz': 'conf/ijcai',{year},sum,pubcount,decreasing,0.74999999999999989
+41,"{name,pubkey}",:'Susan B. Davidson': 'journals/pvldb',{year},sum,pubcount,decreasing,1.0
+42,"{name,pubkey}",:'Zhenjie Zhang': 'conf/icde',{year},sum,pubcount,increasing,1.0
+43,"{name,pubkey}",:'Lizhu Zhou': 'conf/icde',{year},sum,pubcount,decreasing,1.0
+44,"{name,pubkey}",:'Alex Rogers': 'conf/ijcai',{year},sum,pubcount,increasing,0.75
+45,"{name,pubkey}",:'Susan B. Davidson': 'conf/vldb',{year},sum,pubcount,increasing,0.74999999999999989
+46,"{name,pubkey}",:'Per-+\xe0ke Larson': 'conf/icde',{year},sum,pubcount,decreasing,0.75
+47,"{name,pubkey}",:'Naren Ramakrishnan': 'conf/aaai',{year},sum,pubcount,decreasing,0.75
+48,"{name,pubkey}",:'Eric A. Hansen': 'conf/aaai',{year},sum,pubcount,increasing,0.78125
+49,"{name,pubkey}",:'Cyrus Shahabi': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+50,"{name,pubkey}",:'Dieter Fox': 'conf/ijcai',{year},sum,pubcount,decreasing,1.0
+51,"{name,pubkey}",:'Raymond Chi-Wing Wong': 'journals/pvldb',{year},sum,pubcount,increasing,0.74999999999999978
+52,"{name,pubkey}",:'Ming Zhou': 'conf/aaai',{year},sum,pubcount,increasing,0.75000000000000011
+53,"{name,pubkey}",:'J+\xacr+\xa6me Lang': 'conf/aaai',{year},sum,pubcount,decreasing,0.75
+54,"{name,pubkey}",:'Xin Luna Dong': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+55,"{name,pubkey}",:'Elke A. Rundensteiner': 'conf/vldb',{year},sum,pubcount,decreasing,0.74999999999999978
+56,"{name,pubkey}",:'Kevin Chen-Chuan Chang': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+57,"{name,pubkey}",:'Hal Daum+\xac III': 'conf/icml',{year},sum,pubcount,decreasing,1.0
+58,"{name,pubkey}",:'Fran+\xbaois Laviolette': 'conf/icml',{year},sum,pubcount,decreasing,0.75
+59,"{name,pubkey}",:'Stefan Manegold': 'conf/sigmod',{year},sum,pubcount,increasing,1.0
+60,"{name,pubkey}",:'Bart Selman': 'conf/ijcai',{year},sum,pubcount,increasing,0.79999999999999993
+61,"{name,pubkey}",:'Donald Kossmann': 'journals/vldb',{year},sum,pubcount,decreasing,0.75
+62,"{name,pubkey}",:'Utkarsh Srivastava': 'conf/sigmod',{year},sum,pubcount,decreasing,0.74999999999999989
+63,"{name,pubkey}",:'Stanley B. Zdonik': 'journals/pvldb',{year},sum,pubcount,increasing,0.90000000000000002
+64,"{name,pubkey}",:'Mong-Li Lee': 'conf/kdd',{year},sum,pubcount,decreasing,1.0
+65,"{name,pubkey}",:'Marios Hadjieleftheriou': 'journals/vldb',{year},sum,pubcount,decreasing,1.0
+66,"{name,pubkey}",:'Prasad Tadepalli': 'conf/icml',{year},sum,pubcount,decreasing,0.75
+67,"{name,pubkey}",:'Zhihua Zhang': 'conf/aaai',{year},sum,pubcount,decreasing,0.75
+68,"{name,pubkey}",:'Yufei Tao': 'journals/pvldb',{year},sum,pubcount,increasing,0.74999999999999989
+69,"{name,pubkey}",:'Wenjie Zhang': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+70,"{name,pubkey}",:'Andrey Balmin': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+71,"{name,pubkey}",:'Philip A. Bernstein': 'conf/vldb',{year},sum,pubcount,decreasing,0.75
+72,"{name,pubkey}",:'Zhenjie Zhang': 'journals/vldb',{year},sum,pubcount,increasing,1.0
+73,"{name,pubkey}",:'Tommi Jaakkola': 'conf/nips',{year},sum,pubcount,decreasing,0.8541871921182268
+74,"{name,pubkey}",:'Mourad Ouzzani': 'conf/icde',{year},sum,pubcount,decreasing,0.74999999999999989
+75,"{name,pubkey}",:'Henry A. Kautz': 'conf/ijcai',{year},sum,pubcount,decreasing,1.0
+76,"{name,pubkey}",:'Ravishankar Ramamurthy': 'conf/icde',{year},sum,pubcount,decreasing,0.75
+77,"{name,pubkey}",:'Jun Liu': 'conf/nips',{year},sum,pubcount,decreasing,0.74999999999999989
+78,"{name,pubkey}",:'Kristian Kersting': 'conf/ijcai',{year},sum,pubcount,increasing,1.0
+79,"{name,pubkey}",:'Ada Wai-Chee Fu': 'conf/sigmod',{year},sum,pubcount,increasing,1.0
+80,"{name,pubkey}",:'Weiyi Meng': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+81,"{name,pubkey}",:'Thomas G. Dietterich': 'conf/nips',{year},sum,pubcount,decreasing,1.0
+82,"{name,pubkey}",:'Ashraf Aboulnaga': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+83,"{name,pubkey}",:'Jayant R. Haritsa': 'conf/sigmod',{year},sum,pubcount,decreasing,1.0
+84,"{name,pubkey}",:'Vijayshankar Raman': 'conf/sigmod',{year},sum,pubcount,decreasing,1.0
+85,"{name,pubkey}",:'Christopher R+\xac': 'conf/pods',{year},sum,pubcount,decreasing,1.0
+86,"{name,pubkey}",:'Reynold Cheng': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+87,"{name,pubkey}",:'Johannes Gehrke': 'conf/kdd',{year},sum,pubcount,decreasing,1.0
+88,"{name,pubkey}",:'Kenneth Salem': 'journals/pvldb',{year},sum,pubcount,decreasing,1.0
+89,"{name,pubkey}",:'Bill Howe': 'conf/sigmod',{year},sum,pubcount,decreasing,0.74999999999999989
+90,"{name,pubkey}",:'Michael W. Mahoney': 'conf/icml',{year},sum,pubcount,decreasing,0.75
+91,"{name,pubkey}",:'Hanan Samet': 'journals/pvldb',{year},sum,pubcount,increasing,0.74999999999999989
+92,"{name,pubkey}",:'Jayant R. Haritsa': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+93,"{name,pubkey}",:'Hector J. Levesque': 'conf/aaai',{year},sum,pubcount,decreasing,1.0
+94,"{name,pubkey}",:'Sudipto Guha': 'conf/sigmod',{year},sum,pubcount,decreasing,1.0
+95,"{name,pubkey}",:'Sham M. Kakade': 'conf/nips',{year},sum,pubcount,decreasing,0.75
+96,"{name,pubkey}",:'Divyakant Agrawal': 'conf/vldb',{year},sum,pubcount,decreasing,0.75000000000000011
+97,"{name,pubkey}",:'Rajeev Motwani': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+98,"{name,pubkey}",:'Wook-Shin Han': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+99,"{name,pubkey}",:'Hanan Samet': 'conf/icde',{year},sum,pubcount,increasing,0.75
+100,"{name,pubkey}",:'Ahmed K. Elmagarmid': 'conf/icde',{year},sum,pubcount,decreasing,0.96428571428571419
+101,"{name,pubkey}",:'Kevin Chen-Chuan Chang': 'conf/sigmod',{year},sum,pubcount,decreasing,0.90000000000000002
+102,"{name,pubkey}",:'Raymond Chi-Wing Wong': 'conf/sigmod',{year},sum,pubcount,decreasing,1.0
+103,"{name,pubkey}",:'Ben Kao': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+104,"{name,pubkey}",:'Hector Garcia-Molina': 'conf/vldb',{year},sum,pubcount,increasing,0.75000000000000011
+105,"{name,pubkey}",:'Walid G. Aref': 'conf/sigmod',{year},sum,pubcount,increasing,1.0
+106,"{name,pubkey}",:'Dong Xin': 'conf/vldb',{year},sum,pubcount,decreasing,0.75
+107,"{name,pubkey}",:'Sudipto Guha': 'conf/pods',{year},sum,pubcount,decreasing,0.75
+108,"{name,pubkey}",:'Guy M. Lohman': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+109,"{name,pubkey}",:'Reinhard Pichler': 'journals/pvldb',{year},sum,pubcount,decreasing,1.0
+110,"{name,pubkey}",:'Sethu Vijayakumar': 'conf/nips',{year},sum,pubcount,increasing,0.75000000000000011
+111,"{name,pubkey}",:'Dan Klein': 'conf/nips',{year},sum,pubcount,decreasing,0.74999999999999989
+112,"{name,pubkey}",:'Wolfgang Lehner': 'journals/pvldb',{year},sum,pubcount,increasing,0.75
+113,"{name,pubkey}",:'Doina Precup': 'conf/ijcai',{year},sum,pubcount,decreasing,0.75000000000000011
+114,"{name,pubkey}",:'Mohamed F. Mokbel': 'journals/pvldb',{year},sum,pubcount,increasing,0.75000000000000011
+115,"{name,pubkey}",:'Hongyuan Zha': 'conf/icml',{year},sum,pubcount,decreasing,0.75
+116,"{name,pubkey}",:'Pierre Senellart': 'conf/sigmod',{year},sum,pubcount,increasing,0.74999999999999989
+117,"{name,pubkey}",:'Laks V. S. Lakshmanan': 'conf/sigmod',{year},sum,pubcount,increasing,0.75000000000000011
+118,"{name,pubkey}",:'AnHai Doan': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+119,"{name,pubkey}",:'Karl Aberer': 'conf/vldb',{year},sum,pubcount,increasing,0.74999999999999989
+120,"{name,pubkey}",:'Christoph Koch': 'conf/icde',{year},sum,pubcount,decreasing,0.89999999999999991
+121,"{name,pubkey}",:'Martin Zinkevich': 'conf/aaai',{year},sum,pubcount,decreasing,1.0
+122,"{name,pubkey}",:'Xiaofei He': 'conf/ijcai',{year},sum,pubcount,increasing,1.0
+123,"{name,pubkey}",:'Anastassia Ailamaki': 'conf/sigmod',{year},sum,pubcount,decreasing,0.75
+124,"{name,pubkey}",:'Christopher Olston': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+125,"{name,pubkey}",:'Xiaofei He': 'conf/icml',{year},sum,pubcount,increasing,1.0
+126,"{name,pubkey}",:'Yizhou Sun': 'conf/sigmod',{year},sum,pubcount,increasing,0.74999999999999989
+127,"{name,pubkey}",:'Mauricio A. Hern+\xedndez': 'conf/icde',{year},sum,pubcount,increasing,1.0
+128,"{name,pubkey}",:'Martin Theobald': 'conf/vldb',{year},sum,pubcount,increasing,0.74999999999999989
+129,"{name,pubkey}",:'Kenneth D. Forbus': 'conf/ijcai',{year},sum,pubcount,decreasing,1.0
+130,"{name,pubkey}",:'Yannis Velegrakis': 'conf/sigmod',{year},sum,pubcount,increasing,0.74999999999999989
+131,"{name,pubkey}",:'Donald Kossmann': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+132,"{name,pubkey}",:'Pascal Poupart': 'conf/ijcai',{year},sum,pubcount,increasing,1.0
+133,"{name,pubkey}",:'Wang-Chien Lee': 'conf/kdd',{year},sum,pubcount,increasing,0.74999999999999989
+134,"{name,pubkey}",:'Jieping Ye': 'conf/ijcai',{year},sum,pubcount,decreasing,1.0
+135,"{name,pubkey}",:'Beng Chin Ooi': 'conf/vldb',{year},sum,pubcount,increasing,0.75
+136,"{name,pubkey}",:'Dieter Fox': 'conf/aaai',{year},sum,pubcount,increasing,0.74999999999999989
+137,"{name,pubkey}",:'Amos J. Storkey': 'conf/icml',{year},sum,pubcount,increasing,1.0
+138,"{name,pubkey}",:'Heng Huang': 'conf/nips',{year},sum,pubcount,increasing,0.74999999999999989
+139,"{name,pubkey}",:'Jignesh M. Patel': 'journals/pvldb',{year},sum,pubcount,increasing,0.89090909090909076
+140,"{name,pubkey}",:'Sunil Prabhakar': 'conf/vldb',{year},sum,pubcount,increasing,0.80000000000000004
+141,"{name,pubkey}",:'Jun Yang 0001': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+142,"{name,pubkey}",:'Nicolas Bruno': 'conf/icde',{year},sum,pubcount,increasing,0.74999999999999989
+143,"{name,pubkey}",:'Vanja Josifovski': 'conf/kdd',{year},sum,pubcount,decreasing,1.0
+144,"{name,pubkey}",:'Alan Fern': 'conf/ijcai',{year},sum,pubcount,decreasing,0.74999999999999989
+145,"{name,pubkey}",:'Heng Huang': 'conf/ijcai',{year},sum,pubcount,decreasing,1.0
+146,"{name,pubkey}",:'Vijayshankar Raman': 'conf/vldb',{year},sum,pubcount,increasing,0.79999999999999993
+147,"{name,pubkey}",:'Cong Yu': 'journals/vldb',{year},sum,pubcount,increasing,1.0
+148,"{name,pubkey}",:'Yiping Ke': 'conf/sigmod',{year},sum,pubcount,increasing,0.74999999999999989
+149,"{name,pubkey}",:'Stavros Harizopoulos': 'conf/vldb',{year},sum,pubcount,decreasing,0.74999999999999989
+150,"{name,pubkey}",:'Guido Moerkotte': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+151,"{name,pubkey}",:'Alexander G. Gray': 'conf/icml',{year},sum,pubcount,decreasing,1.0
+152,"{name,pubkey}",:'S. V. N. Vishwanathan': 'conf/kdd',{year},sum,pubcount,increasing,1.0
+153,"{name,pubkey}",:'Jens Teubner': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+154,"{name,pubkey}",:'Beng Chin Ooi': 'journals/pvldb',{year},sum,pubcount,increasing,0.89090909090909076
+155,"{name,pubkey}",:'Raymond J. Mooney': 'conf/aaai',{year},sum,pubcount,decreasing,0.75
+156,"{name,pubkey}",:'Kian-Lee Tan': 'conf/vldb',{year},sum,pubcount,increasing,0.74999999999999989
+157,"{name,pubkey}",:'George Kollios': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+158,"{name,pubkey}",:'Prasad Tadepalli': 'conf/nips',{year},sum,pubcount,decreasing,1.0
+159,"{name,pubkey}",:'S. V. N. Vishwanathan': 'conf/icml',{year},sum,pubcount,decreasing,0.75
+160,"{name,pubkey}",:'Masashi Sugiyama': 'conf/aaai',{year},sum,pubcount,decreasing,0.75
+161,"{name,pubkey}",:'Olivier Chapelle': 'conf/icml',{year},sum,pubcount,decreasing,0.75
+162,"{name,pubkey}",:'Ioana Manolescu': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+163,"{name,pubkey}",:'Kyriakos Mouratidis': 'journals/pvldb',{year},sum,pubcount,decreasing,1.0
+164,"{name,pubkey}",:'Ada Wai-Chee Fu': 'journals/vldb',{year},sum,pubcount,decreasing,0.74999999999999989
+165,"{name,pubkey}",:'Akrivi Vlachou': 'conf/sigmod',{year},sum,pubcount,increasing,1.0
+166,"{name,pubkey}",:'Theodore Johnson': 'conf/icde',{year},sum,pubcount,decreasing,0.75
+167,"{name,pubkey}",:'Anastassia Ailamaki': 'conf/vldb',{year},sum,pubcount,increasing,0.90000000000000002
+168,"{name,pubkey}",:'Andreas Krause': 'conf/icml',{year},sum,pubcount,increasing,0.75
+169,"{name,pubkey}",:'Yannis Papakonstantinou': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+170,"{name,pubkey}",:'Jayant Madhavan': 'conf/sigmod',{year},sum,pubcount,increasing,0.79999999999999993
+171,"{name,pubkey}",:'Haixun Wang': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+172,"{name,pubkey}",:'Xuemin Lin': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+173,"{name,pubkey}",:'Satinder P. Singh': 'conf/ijcai',{year},sum,pubcount,increasing,1.0
+174,"{name,pubkey}",:'Dong Xin': 'conf/kdd',{year},sum,pubcount,decreasing,0.74999999999999989
+175,"{name,pubkey}",:'Jingren Zhou': 'journals/pvldb',{year},sum,pubcount,decreasing,1.0
+176,"{name,pubkey}",:'Dana S. Nau': 'conf/aaai',{year},sum,pubcount,decreasing,0.75
+177,"{name,pubkey}",:'Raghu Ramakrishnan': 'conf/vldb',{year},sum,pubcount,increasing,0.74999999999999978
+178,"{name,pubkey}",:Barry O'Sullivan: 'conf/aaai',{year},sum,pubcount,decreasing,0.75
+179,"{name,pubkey}",:'Xiangyang Xue': 'conf/icml',{year},sum,pubcount,decreasing,1.0
+180,"{name,pubkey}",:'Shivakumar Vaithyanathan': 'conf/icde',{year},sum,pubcount,decreasing,1.0
+181,"{name,pubkey}",:'Rajeev Rastogi': 'conf/icde',{year},sum,pubcount,increasing,0.75
+182,"{name,pubkey}",:'Wang Chiew Tan': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+183,"{name,pubkey}",:'Rong Jin': 'conf/ijcai',{year},sum,pubcount,increasing,1.0
+184,"{name,pubkey}",:'Dimitrios Gunopulos': 'conf/vldb',{year},sum,pubcount,decreasing,0.74999999999999989
+185,"{name,pubkey}",:'Sergey Melnik': 'conf/sigmod',{year},sum,pubcount,decreasing,0.75
+186,"{name,pubkey}",:'Nina Narodytska': 'conf/ijcai',{year},sum,pubcount,increasing,0.96428571428571419
+187,"{name,pubkey}",:'Lu Qin': 'journals/pvldb',{year},sum,pubcount,decreasing,1.0
+188,"{name,pubkey}",:'Xiang Lian': 'journals/vldb',{year},sum,pubcount,increasing,0.74999999999999989
+189,"{name,pubkey}",:'Ren+\xace J. Miller': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+190,"{name,pubkey}",:'Clement T. Yu': 'conf/icde',{year},sum,pubcount,decreasing,0.75000000000000011
+191,"{name,pubkey}",:'Dong Xin': 'journals/pvldb',{year},sum,pubcount,decreasing,1.0
+192,"{name,pubkey}",:'Carlo Zaniolo': 'journals/vldb',{year},sum,pubcount,decreasing,1.0
+193,"{name,pubkey}",:'Diego Calvanese': 'conf/pods',{year},sum,pubcount,decreasing,1.0
+194,"{name,pubkey}",:'Haixun Wang': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+195,"{name,pubkey}",:'Xingquan Zhu': 'conf/aaai',{year},sum,pubcount,decreasing,0.74999999999999989
+196,"{name,pubkey}",:'Peter A. Boncz': 'conf/vldb',{year},sum,pubcount,decreasing,0.75
+197,"{name,pubkey}",:'Andrew W. Moore': 'conf/kdd',{year},sum,pubcount,increasing,1.0
+198,"{name,pubkey}",:'Baihua Zheng': 'journals/vldb',{year},sum,pubcount,increasing,0.75
+199,"{name,pubkey}",:'Dale Schuurmans': 'conf/ijcai',{year},sum,pubcount,increasing,0.74999999999999989
+200,"{name,pubkey}",:'Diego Calvanese': 'conf/aaai',{year},sum,pubcount,increasing,0.75
+201,"{name,pubkey}",:'Nathan Srebro': 'conf/nips',{year},sum,pubcount,increasing,0.96428571428571419
+202,"{name,pubkey}",:'Ivor W. Tsang': 'conf/ijcai',{year},sum,pubcount,increasing,1.0
+203,"{name,pubkey}",:'Deng Cai': 'conf/aaai',{year},sum,pubcount,increasing,0.75000000000000011
+204,"{name,pubkey}",:'Per-+\xe0ke Larson': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+205,"{name,pubkey}",:'Lin Qiao': 'conf/sigmod',{year},sum,pubcount,decreasing,1.0
+206,"{name,pubkey}",:'Jianyong Wang': 'conf/icde',{year},sum,pubcount,decreasing,0.75
+207,"{name,pubkey}",:'Sai Wu': 'conf/sigmod',{year},sum,pubcount,decreasing,0.74999999999999989
+208,"{name,pubkey}",:'Marianne Winslett': 'journals/pvldb',{year},sum,pubcount,decreasing,1.0
+209,"{name,pubkey}",:'Christopher M. Jermaine': 'journals/vldb',{year},sum,pubcount,increasing,1.0
+210,"{name,pubkey}",:'Glenn Fung': 'conf/ijcai',{year},sum,pubcount,decreasing,1.0
+211,"{name,pubkey}",:'Hong Cheng': 'journals/pvldb',{year},sum,pubcount,decreasing,1.0
+212,"{name,pubkey}",:'Dan Klein': 'conf/aaai',{year},sum,pubcount,decreasing,1.0
+213,"{name,pubkey}",:'Peter J. Haas': 'conf/icde',{year},sum,pubcount,decreasing,1.0
+214,"{name,pubkey}",:'Christopher R+\xac': 'journals/pvldb',{year},sum,pubcount,decreasing,0.74999999999999989
+215,"{name,pubkey}",:'Mourad Ouzzani': 'conf/sigmod',{year},sum,pubcount,decreasing,0.75
+216,"{name,pubkey}",:'Vivek R. Narasayya': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+217,"{name,pubkey}",:'H. V. Jagadish': 'journals/pvldb',{year},sum,pubcount,increasing,0.74999999999999989
+218,"{name,pubkey}",:'Goetz Graefe': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+219,"{name,pubkey}",:'Vassilis J. Tsotras': 'journals/vldb',{year},sum,pubcount,increasing,1.0
+220,"{name,pubkey}",:'Yu Zheng': 'conf/icde',{year},sum,pubcount,decreasing,1.0
+221,"{name,pubkey}",:'Nikos Mamoulis': 'journals/vldb',{year},sum,pubcount,decreasing,0.75
+222,"{name,pubkey}",:'Vijayshankar Raman': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+223,"{name,pubkey}",:'Irwin King': 'conf/nips',{year},sum,pubcount,increasing,0.75
+224,"{name,pubkey}",:'M. Tamer +\xfbzsu': 'journals/pvldb',{year},sum,pubcount,decreasing,0.75000000000000011
+225,"{name,pubkey}",:'Hector Geffner': 'conf/aaai',{year},sum,pubcount,increasing,0.79999999999999993
+226,"{name,pubkey}",:'Carlos Guestrin': 'conf/ijcai',{year},sum,pubcount,increasing,0.74999999999999989
+227,"{name,pubkey}",:'Ambuj Tewari': 'conf/icml',{year},sum,pubcount,increasing,1.0
+228,"{name,pubkey}",:'Jiawei Han': 'conf/kdd',{year},sum,pubcount,increasing,0.75208333333333333
+229,"{name,pubkey}",:'Michael R. Lyu': 'conf/ijcai',{year},sum,pubcount,increasing,1.0
+230,"{name,pubkey}",:'Martin L. Kersten': 'journals/pvldb',{year},sum,pubcount,increasing,0.74999999999999989
+231,"{name,pubkey}",:'Satinder P. Singh': 'conf/nips',{year},sum,pubcount,increasing,0.74999999999999989
+232,"{name,pubkey}",:'Dong Xin': 'conf/icde',{year},sum,pubcount,decreasing,0.75
+233,"{name,pubkey}",:'George Kollios': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+234,"{name,pubkey}",:'Xuemin Lin': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+235,"{name,pubkey}",:'Wei Wang 0011': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+236,"{name,pubkey}",:'Pascal Poupart': 'conf/aaai',{year},sum,pubcount,decreasing,0.74999999999999989
+237,"{name,pubkey}",:'Laks V. S. Lakshmanan': 'conf/kdd',{year},sum,pubcount,decreasing,1.0
+238,"{name,pubkey}",:'Laura Chiticariu': 'conf/vldb',{year},sum,pubcount,decreasing,0.75
+239,"{name,pubkey}",:'Vagelis Hristidis': 'conf/sigmod',{year},sum,pubcount,decreasing,1.0
+240,"{name,pubkey}",:'Guoliang Li': 'journals/vldb',{year},sum,pubcount,decreasing,1.0
+241,"{name,pubkey}",:'Sourav S. Bhowmick': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+242,"{name,pubkey}",:'Csaba Szepesv+\xedri': 'conf/icml',{year},sum,pubcount,decreasing,0.8541871921182268
+243,"{name,pubkey}",:'Laks V. S. Lakshmanan': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+244,"{name,pubkey}",:'Chris Jermaine': 'conf/icde',{year},sum,pubcount,decreasing,1.0
+245,"{name,pubkey}",:'Wolfgang Lehner': 'journals/vldb',{year},sum,pubcount,decreasing,1.0
+246,"{name,pubkey}",:'Alex J. Smola': 'conf/icml',{year},sum,pubcount,decreasing,0.80000000000000016
+247,"{name,pubkey}",:'Jingren Zhou': 'conf/sigmod',{year},sum,pubcount,increasing,1.0
+248,"{name,pubkey}",:'Fei Wang 0001': 'conf/aaai',{year},sum,pubcount,increasing,1.0
+249,"{name,pubkey}",:'David J. DeWitt': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+250,"{name,pubkey}",:'Zhihua Zhang': 'conf/ijcai',{year},sum,pubcount,decreasing,1.0
+251,"{name,pubkey}",:'Dan Roth': 'conf/aaai',{year},sum,pubcount,increasing,1.0
+252,"{name,pubkey}",:'Badrish Chandramouli': 'journals/pvldb',{year},sum,pubcount,decreasing,0.80000000000000016
+253,"{name,pubkey}",:'Yannis Papakonstantinou': 'conf/sigmod',{year},sum,pubcount,decreasing,0.74999999999999989
+254,"{name,pubkey}",:'Alexander G. Gray': 'conf/kdd',{year},sum,pubcount,increasing,0.74999999999999989
+255,"{name,pubkey}",:'Jonathan Goldstein': 'journals/pvldb',{year},sum,pubcount,decreasing,0.74999999999999989
+256,"{name,pubkey}",:'Hector Garcia-Molina': 'journals/pvldb',{year},sum,pubcount,increasing,0.89629629629629626
+257,"{name,pubkey}",:'Shenghuo Zhu': 'conf/icde',{year},sum,pubcount,decreasing,1.0
+258,"{name,pubkey}",:'David J. DeWitt': 'conf/icde',{year},sum,pubcount,increasing,1.0
+259,"{name,pubkey}",:'Giuseppe De Giacomo': 'conf/ijcai',{year},sum,pubcount,decreasing,1.0
+260,"{name,pubkey}",:'Shlomo Zilberstein': 'conf/nips',{year},sum,pubcount,decreasing,1.0
+261,"{name,pubkey}",:'Akrivi Vlachou': 'journals/pvldb',{year},sum,pubcount,decreasing,1.0
+262,"{name,pubkey}",:'Hector J. Levesque': 'conf/ijcai',{year},sum,pubcount,increasing,0.72058823529411764
+263,"{name,pubkey}",:'K. Sel+\xbauk Candan': 'conf/sigmod',{year},sum,pubcount,increasing,0.74999999999999989
+264,"{name,pubkey}",:'Ming Zhou': 'conf/ijcai',{year},sum,pubcount,decreasing,0.74999999999999989
+265,"{name,pubkey}",:'Badrish Chandramouli': 'conf/icde',{year},sum,pubcount,increasing,0.74999999999999989
+266,"{name,pubkey}",:'Carlo Curino': 'journals/pvldb',{year},sum,pubcount,increasing,0.75
+267,"{name,pubkey}",:'Jayant R. Haritsa': 'conf/icde',{year},sum,pubcount,increasing,0.75
+268,"{name,pubkey}",:'Jennifer Widom': 'conf/sigmod',{year},sum,pubcount,decreasing,1.0
+269,"{name,pubkey}",:'Shipeng Yu': 'conf/kdd',{year},sum,pubcount,increasing,0.74999999999999989
+270,"{name,pubkey}",:'Feiping Nie': 'conf/nips',{year},sum,pubcount,increasing,0.74999999999999989
+271,"{name,pubkey}",:'Laks V. S. Lakshmanan': 'journals/pvldb',{year},sum,pubcount,decreasing,0.75
+272,"{name,pubkey}",:'Michael J. Franklin': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+273,"{name,pubkey}",:'Yu Zheng': 'conf/kdd',{year},sum,pubcount,increasing,1.0
+274,"{name,pubkey}",:'Ming-Syan Chen': 'conf/kdd',{year},sum,pubcount,decreasing,0.75
+275,"{name,pubkey}",:'Torsten Grust': 'conf/sigmod',{year},sum,pubcount,decreasing,0.75
+276,"{name,pubkey}",:'Zheng Chen': 'conf/kdd',{year},sum,pubcount,decreasing,1.0
+277,"{name,pubkey}",:'Jun Yang 0001': 'conf/sigmod',{year},sum,pubcount,decreasing,0.78125
+278,"{name,pubkey}",:'Chris H. Q. Ding': 'conf/nips',{year},sum,pubcount,increasing,0.74999999999999989
+279,"{name,pubkey}",:'Kenneth A. Ross': 'journals/pvldb',{year},sum,pubcount,decreasing,0.75
+280,"{name,pubkey}",:'Jonathan Goldstein': 'conf/sigmod',{year},sum,pubcount,increasing,1.0
+281,"{name,pubkey}",:'Yong Yu': 'conf/aaai',{year},sum,pubcount,decreasing,0.75
+282,"{name,pubkey}",:'Christian S. Jensen': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+283,"{name,pubkey}",:'Ada Wai-Chee Fu': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+284,"{name,pubkey}",:'Huan Liu': 'conf/ijcai',{year},sum,pubcount,increasing,1.0
+285,"{name,pubkey}",:'Jeff A. Bilmes': 'conf/aaai',{year},sum,pubcount,increasing,1.0
+286,"{name,pubkey}",:'Hal Daum+\xac III': 'conf/aaai',{year},sum,pubcount,increasing,1.0
+287,"{name,pubkey}",:'Sudipto Guha': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+288,"{name,pubkey}",:'Daniel S. Weld': 'conf/ijcai',{year},sum,pubcount,decreasing,0.74999999999999989
+289,"{name,pubkey}",:'Ziyang Liu': 'journals/pvldb',{year},sum,pubcount,increasing,0.74999999999999978
+290,"{name,pubkey}",:'Zheng Chen': 'conf/ijcai',{year},sum,pubcount,decreasing,1.0
+291,"{name,pubkey}",:'Dan Roth': 'conf/ijcai',{year},sum,pubcount,increasing,1.0
+292,"{name,pubkey}",:'Divesh Srivastava': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+293,"{name,pubkey}",:'Sridhar Mahadevan': 'conf/ijcai',{year},sum,pubcount,decreasing,0.75
+294,"{name,pubkey}",:'Laura M. Haas': 'journals/pvldb',{year},sum,pubcount,decreasing,1.0
+295,"{name,pubkey}",:'Christos Faloutsos': 'conf/vldb',{year},sum,pubcount,decreasing,0.75
+296,"{name,pubkey}",:'Laura M. Haas': 'conf/icde',{year},sum,pubcount,increasing,1.0
+297,"{name,pubkey}",:'Gerhard Weikum': 'journals/pvldb',{year},sum,pubcount,decreasing,0.74999999999999989
+298,"{name,pubkey}",:'Diego Calvanese': 'conf/ijcai',{year},sum,pubcount,increasing,0.79999999999999993
+299,"{name,pubkey}",:'K. Sel+\xbauk Candan': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+300,"{name,pubkey}",:'Jun Zhu': 'conf/nips',{year},sum,pubcount,decreasing,0.74999999999999989
+301,"{name,pubkey}",:'Bugra Gedik': 'journals/pvldb',{year},sum,pubcount,increasing,0.74999999999999989
+302,"{name,pubkey}",:'Jayavel Shanmugasundaram': 'conf/icde',{year},sum,pubcount,increasing,1.0
+303,"{name,pubkey}",:'Ashraf Aboulnaga': 'conf/icde',{year},sum,pubcount,increasing,0.83999999999999986
+304,"{name,pubkey}",:'Maurice van Keulen': 'conf/icde',{year},sum,pubcount,decreasing,0.80000000000000016
+305,"{name,pubkey}",:'M. Tamer +\xfbzsu': 'conf/sigmod',{year},sum,pubcount,increasing,1.0
+306,"{name,pubkey}",:'George Kollios': 'journals/vldb',{year},sum,pubcount,increasing,0.75
+307,"{name,pubkey}",:'Dale Schuurmans': 'conf/aaai',{year},sum,pubcount,increasing,1.0
+308,"{name,pubkey}",:'Carsten Lutz': 'conf/ijcai',{year},sum,pubcount,decreasing,0.75
+309,"{name,pubkey}",:'Tok Wang Ling': 'conf/icde',{year},sum,pubcount,increasing,0.74999999999999989
+310,"{name,pubkey}",:'Matthias Renz': 'conf/sigmod',{year},sum,pubcount,increasing,1.0
+311,"{name,pubkey}",:'Dou Shen': 'conf/ijcai',{year},sum,pubcount,decreasing,1.0
+312,"{name,pubkey}",:'Utkarsh Srivastava': 'journals/pvldb',{year},sum,pubcount,increasing,1.0
+313,"{name,pubkey}",:'Alfons Kemper': 'conf/vldb',{year},sum,pubcount,decreasing,0.75
+314,"{name,pubkey}",:'Bishwaranjan Bhattacharjee': 'conf/vldb',{year},sum,pubcount,decreasing,0.75
+315,"{name,pubkey}",:'Kristian Kersting': 'conf/aaai',{year},sum,pubcount,decreasing,0.89090909090909098
+316,"{name,pubkey}",:'Torsten Grust': 'journals/pvldb',{year},sum,pubcount,decreasing,0.75
+317,"{name,pubkey}",:'Daniel Deutch': 'conf/pods',{year},sum,pubcount,increasing,1.0
+318,"{name,pubkey}",:'Dan Suciu': 'conf/vldb',{year},sum,pubcount,decreasing,0.74999999999999989
+319,"{name,pubkey}",:'Sunita Sarawagi': 'journals/pvldb',{year},sum,pubcount,decreasing,0.75
+320,"{name,pubkey}",:'Divesh Srivastava': 'journals/vldb',{year},sum,pubcount,increasing,1.0
+321,"{name,pubkey}",:'Qiang Yang 0001': 'conf/kdd',{year},sum,pubcount,decreasing,0.74999999999999989
+322,"{name,pubkey}",:'Utkarsh Srivastava': 'conf/icde',{year},sum,pubcount,decreasing,1.0
+323,"{name,pubkey}",:'Yannis Sismanis': 'conf/sigmod',{year},sum,pubcount,decreasing,0.75
+324,"{name,pubkey}",:'Omar Benjelloun': 'journals/vldb',{year},sum,pubcount,decreasing,1.0
+325,"{name,pubkey}",:'Nilesh N. Dalvi': 'conf/pods',{year},sum,pubcount,decreasing,0.75
+326,"{name,pubkey}",:'Jeff G. Schneider': 'conf/nips',{year},sum,pubcount,decreasing,0.75
+327,"{name,pubkey}",:'Omar Benjelloun': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+328,"{name,pubkey}",:'Tok Wang Ling': 'conf/sigmod',{year},sum,pubcount,increasing,0.74999999999999989
+329,"{name,pubkey}",:'Prateek Jain 0002': 'conf/icml',{year},sum,pubcount,increasing,1.0
+330,"{name,pubkey}",:'Chen Li': 'conf/sigmod',{year},sum,pubcount,decreasing,0.80000000000000016
+331,"{name,pubkey}",:'Han Liu': 'conf/icml',{year},sum,pubcount,increasing,0.75000000000000011
+332,"{name,pubkey}",:'Clement T. Yu': 'conf/vldb',{year},sum,pubcount,decreasing,1.0
+333,"{name,pubkey}",:'Huan Liu': 'conf/kdd',{year},sum,pubcount,increasing,0.88970588235294124
+334,"{name,pubkey}",:'Vikas Sindhwani': 'conf/nips',{year},sum,pubcount,decreasing,0.74999999999999989
+335,"{name,pubkey}",:'Deng Cai': 'conf/ijcai',{year},sum,pubcount,increasing,0.75
+336,"{name,pubkey}",:'Yan Liu 0002': 'conf/kdd',{year},sum,pubcount,increasing,1.0
+337,"{name,pubkey}",:'Martin M++ller 0003': 'conf/aaai',{year},sum,pubcount,increasing,0.74999999999999989
+338,"{name,pubkey}",:'Calisto Zuzarte': 'conf/sigmod',{year},sum,pubcount,increasing,0.75
+339,"{name,pubkey}",:'Eric A. Hansen': 'conf/ijcai',{year},sum,pubcount,increasing,1.0
+340,"{name,pubkey}",:'Bishwaranjan Bhattacharjee': 'conf/icde',{year},sum,pubcount,decreasing,1.0
+341,"{name,pubkey}",:'Andrey Balmin': 'journals/pvldb',{year},sum,pubcount,increasing,0.75
+342,"{name,pubkey}",:'Feiping Nie': 'conf/ijcai',{year},sum,pubcount,increasing,0.98684210526315785
+343,"{name,pubkey}",:'Goetz Graefe': 'conf/icde',{year},sum,pubcount,decreasing,0.75
+344,"{name,pubkey}",:'Gal A. Kaminka': 'conf/ijcai',{year},sum,pubcount,increasing,1.0
+345,"{name,pubkey}",:'Lise Getoor': 'conf/aaai',{year},sum,pubcount,increasing,1.0
+346,"{name,pubkey}",:'Dale Schuurmans': 'conf/icml',{year},sum,pubcount,increasing,1.0
+347,"{name,pubkey}",:'Shivnath Babu': 'journals/pvldb',{year},sum,pubcount,decreasing,0.75
+348,"{name,pubkey}",:'Gautam Das': 'journals/pvldb',{year},sum,pubcount,decreasing,0.85263157894736841
+349,"{name,pubkey}",:'Jonathan Schaeffer': 'conf/ijcai',{year},sum,pubcount,increasing,0.75
+350,"{name,pubkey}",:'Vijayshankar Raman': 'conf/icde',{year},sum,pubcount,increasing,1.0
+351,"{name,pubkey}",:'Pedro Domingos': 'conf/nips',{year},sum,pubcount,decreasing,1.0
+352,"{name,pubkey}",:'Jennifer Widom': 'conf/vldb',{year},sum,pubcount,decreasing,0.75000000000000011
+353,"{name,pubkey}",:'Lirong Xia': 'conf/ijcai',{year},sum,pubcount,decreasing,1.0
+354,"{name,pubkey}",:'Jeffrey S. Rosenschein': 'conf/ijcai',{year},sum,pubcount,decreasing,0.89090909090909098
+355,"{name,pubkey}",:'Georgia Koutrika': 'conf/icde',{year},sum,pubcount,increasing,0.74999999999999989
+356,"{name,pubkey}",:'Jingren Zhou': 'conf/vldb',{year},sum,pubcount,increasing,1.0
+357,"{name,pubkey}",:'Xiaojin Zhu': 'conf/nips',{year},sum,pubcount,increasing,0.75
+358,"{name,pubkey}",:'Xiangyang Xue': 'conf/ijcai',{year},sum,pubcount,increasing,0.75
+359,"{name,pubkey}",:'Sridhar Mahadevan': 'conf/icml',{year},sum,pubcount,decreasing,0.75
+360,"{name,pubkey}",:'Andrew W. Moore': 'conf/nips',{year},sum,pubcount,decreasing,1.0
+361,"{name,pubkey}",:'Hua Wang': 'conf/aaai',{year},sum,pubcount,decreasing,1.0
+362,"{name,pubkey}",:'Charles Lee Isbell Jr.': 'conf/ijcai',{year},sum,pubcount,decreasing,1.0
+363,"{name,pubkey}",:'Shuigeng Zhou': 'conf/sigmod',{year},sum,pubcount,decreasing,1.0
+364,"{name,pubkey}",:'Jan Peters': 'conf/nips',{year},sum,pubcount,increasing,1.0
+365,"{name,pubkey}",:'Xiaofei He': 'conf/kdd',{year},sum,pubcount,increasing,1.0
+366,"{name,pubkey}",none,{year},sum,pubcount,linear,14.308877178759627
+367,{name},'Nick Koudas',{pubkey},stddev1,pubcount,constant,0.13323467750529824
+368,{name},'J+\xacr+\xa6me Lang',{pubkey},stddev1,pubcount,constant,0.14285714285714285
+369,{name},'Raghu Ramakrishnan',{pubkey},stddev1,pubcount,constant,0.1414213562373095
+370,{name},'Surajit Chaudhuri',{year},stddev1,pubcount,constant,0.128564869306645
+371,{name},'Divesh Srivastava',{year},stddev1,pubcount,constant,0.14285714285714285
+372,{name},'Divesh Srivastava',{year},stddev1,pubcount,constant,0.14285714285714285
+373,{name},'Andrew Y. Ng',{year},stddev1,pubcount,constant,0.14285714285714285
+374,{name},'Yoshua Bengio',{year},stddev1,pubcount,constant,0.14285714285714285
+375,{name},'Ariel D. Procaccia',{year},stddev1,pubcount,constant,0.14285714285714285
+376,{name},'Nicholas R. Jennings',{year},stddev1,pubcount,constant,0.14285714285714285
+377,{name},'Nicholas R. Jennings',{year},stddev1,pubcount,constant,0.14285714285714285
+378,{name},'Eric P. Xing',{year},stddev1,pubcount,constant,0.14285714285714285
+379,{pubkey}, 'conf/ijcai',{name},stddev1,pubcount,constant,0.14285714285714285
+380,{pubkey}, 'conf/vldb',{name},stddev1,pubcount,constant,0.1414213562373095
+381,{pubkey}, 'conf/vldb',{name},stddev1,pubcount,constant,0.13323467750529824
+382,{year},2011,{name},stddev1,pubcount,constant,0.14285714285714285
+383,{year},2011,{name},stddev1,pubcount,constant,0.14285714285714285
+384,{year},2011,{name},stddev1,pubcount,constant,0.14285714285714285
+385,{year},2012,{name},stddev1,pubcount,constant,0.14285714285714285
+386,{year},2010,{name},stddev1,pubcount,constant,0.14285714285714285
+387,{year},2007,{name},stddev1,pubcount,constant,0.14285714285714285
+388,{year},2013,{name},stddev1,pubcount,constant,0.14285714285714285
+389,{year},2008,{name},stddev1,pubcount,constant,0.14285714285714285
+390,{year},2004,{name},stddev1,pubcount,constant,0.128564869306645

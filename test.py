@@ -13,7 +13,7 @@ values = ["pubcount"]
 time = ["year"]
 dimensions = []
 categories = ["name","pubkey"]
-tableName = "publication"
+tableName = "pub_select"
 p = PatternFinder(time, categories, dimensions, values, tableName)
 
 p.findPatterns()
