@@ -1,6 +1,6 @@
 import pandas as pd
 from itertools import combinations
-from Regression import fitlinear,fitconstant
+from sklearn.linear_model import LinearRegression
 
 class PatternFinder:
     conn=None
@@ -46,10 +46,12 @@ class PatternFinder:
                     for j in range(len(g)-1,0,-1):
                     #q: Do we allow f to be empty set?
                         for v in combinations(g,j):
+                            v=list(v)
                             f=[k for k in g if k not in v]
+                            l=0 #l indicates if we fit linear model
                             if all([x in num for x in v]):
-                                fitlinear(d,f,v,agg)
-                            fitconstant(d,f,v,agg)
+                                l=1
+                            self.fitmodel(d,f,v,a,agg,l)
     
     def formCube(self, a, agg):
         group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a]+
@@ -63,4 +65,52 @@ class PatternFinder:
             null=" and ".join([b+".isna()" for b in cols if b not in g])
             res=res+" and "+null
         return res
+    
+    def fitmodel(self,d,f,v,a,agg,l=0):
+        fd=d.sort_values(by=f)
+        oldKey=None
+        oldIndex=0
+        num_f=0
+        valid_l_f=0
+        valid_c_f=0
+        
+        for index,row in fd.iterrows():
+            thisKey=row[f]
+            if oldKey and oldKey!=thisKey:
+                temp=fd[oldIndex:index]
+                
+                if l==1: #fitting linear
+                    lr=LinearRegression()
+                    lr.fit(temp[v],temp[agg])
+                    num_f+=1
+                    if lr.score(temp[v],temp[agg])>self.theta_l:
+                        valid_l_f+=1
+                        #pc.add_local()
+                        
+                #fitting constant
+                if pd.DataFrame.std(temp[agg])/pd.DataFrame.mean(temp[agg])<self.theta_c:
+                    valid_c_f+=1
+                    #pc.add_local()
+                    
+                oldIndex=index
+            oldKey=thisKey
+            
+        if oldKey:
+            temp=fd[oldIndex:]
+            
+            if l==1:
+                lr=LinearRegression()
+                lr.fit(temp[v],temp[agg])
+                num_f+=1
+                if lr.score(temp[v],temp[agg])>self.theta_l:
+                    valid_f+=1
+                    #pc.add_local()
+            if pd.DataFrame.std(temp[agg])/pd.DataFrame.mean(temp[agg])<self.theta_c:
+                valid_c_f+=1
+                #pc.add_local()
+                
+        if valid_c_f/num_f>self.lamb:
+            #pc.add_global()
+        if valid_l_f/num_f>self.lamb:
+            #pc.add_global()
         
