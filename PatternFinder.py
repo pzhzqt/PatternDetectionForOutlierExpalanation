@@ -38,7 +38,7 @@ class PatternFinder:
                 self.cat.append(col)
     
     def findPattern(self):
-        pc=PC.PatternCollection(list(self.schema))
+        self.pc=PC.PatternCollection(list(self.schema))
         
         for a in self.cat:
             agg="count"
@@ -59,19 +59,28 @@ class PatternFinder:
     
     def formCube(self, a, agg):
         group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a]+
-            [cat for cat in self.cat if cat!=a])
-        query="SELECT "+agg+"("+a+"), "+group+" FROM "+self.table+" GROUP BY CUBE("+group+")"
+                        [cat for cat in self.cat if cat!=a])
+        grouping=",".join(["CAST("+num+" AS NUMERIC), GROUPING(CAST("+num+" AS NUMERIC)) as g_"+num
+                        for num in self.num if num!=a]+
+            [cat+", GROUPING("+cat+") as g_"+cat for cat in self.cat if cat!=a])
+        query="SELECT "+agg+"("+a+"), "+grouping+" FROM "+self.table+" GROUP BY CUBE("+group+")"
         return query
         
     def aggQuery(self, g, cols):
-        res=" and ".join([a+".notna()" for a in g])
+        #=======================================================================
+        # res=" and ".join([a+".notna()" for a in g])
+        # if len(g)<len(cols):
+        #     null=" and ".join([b+".isna()" for b in cols if b not in g])
+        #     res=res+" and "+null
+        #=======================================================================
+        res=" and ".join(["g_"+a+"==0" for a in g])
         if len(g)<len(cols):
-            null=" and ".join([b+".isna()" for b in cols if b not in g])
-            res=res+" and "+null
+            unused=" and ".join(["g_"+b+"==1" for b in cols if b not in g])
+            res=res+" and "+unused
         return res
     
     def fitmodel(self,d,f,v,a,agg,l=0):
-        fd=d.sort_values(by=f)
+        fd=d.sort_values(by=f).reset_index(drop=True)
         oldKey=None
         oldIndex=0
         num_f=0
@@ -79,28 +88,28 @@ class PatternFinder:
         valid_c_f=0
         
         for index,row in fd.iterrows():
-            thisKey=row[f]
-            if oldKey is not None and any(oldKey!=thisKey):
+            thisKey=list(row[f])
+            if oldKey and oldKey!=thisKey:
                 temp=fd[oldIndex:index]
                 num_f+=1
-                
+                print('fitting: '+str(f)+','+str(oldKey)+','+str(v)+','+agg+'('+a+')')
                 if l==1: #fitting linear
                     lr=LinearRegression()
                     lr.fit(temp[v],temp[agg])
                     theta_l=lr.score(temp[v],temp[agg])
                     if theta_l>self.theta_l:
                         valid_l_f+=1
-                        pc.add_local(f,list(oldKey),v,a,agg,'linear',theta_l)
-                        print('adding local: '+str(f)+','+str(list(oldKey))+','+str(v)+','+
-                              str(a)+','+agg+','+'linear'+','+theta_l)
+                        self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                        print('adding local: '+str(f)+','+str(oldKey)+','+str(v)+','+
+                              str(a)+','+agg+','+'linear'+','+str(theta_l))
                         
                 #fitting constant
                 theta_c=pd.DataFrame.std(temp[agg])/pd.DataFrame.mean(temp[agg])
                 if theta_c<self.theta_c:
                     valid_c_f+=1
-                    pc.add_local(f,list(oldKey),v,a,agg,'const',theta_c)
-                    print('adding local: '+str(f)+','+str(list(oldKey))+','+str(v)+','+
-                              str(a)+','+agg+','+'const'+','+theta_c)
+                    self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                    print('adding local: '+str(f)+','+str(oldKey)+','+str(v)+','+
+                              str(a)+','+agg+','+'const'+','+str(theta_c))
                     
                 oldIndex=index
             oldKey=thisKey
@@ -115,20 +124,22 @@ class PatternFinder:
                 theta_l=lr.score(temp[v],temp[agg])
                 if theta_l>self.theta_l:
                     valid_l_f+=1
-                    pc.add_local(f,list(oldKey),v,a,agg,'linear',theta_l)
-                    print('adding local: '+str(f)+','+str(list(oldKey))+','+str(v)+','+
-                              str(a)+','+agg+','+'linear'+','+theta_l)
+                    self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                    print('adding local: '+str(f)+','+str(oldKey)+','+str(v)+','+
+                              str(a)+','+agg+','+'linear'+','+str(theta_l))
             theta_c=pd.DataFrame.std(temp[agg])/pd.DataFrame.mean(temp[agg])
             if theta_c<self.theta_c:
                 valid_c_f+=1
-                pc.add_local(f,list(oldKey),v,a,agg,'const',theta_c)
-                print('adding local: '+str(f)+','+str(list(oldKey))+','+str(v)+','+
-                              str(a)+','+agg+','+'const'+','+theta_c)
+                self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                print('adding local: '+str(f)+','+str(oldKey)+','+str(v)+','+
+                              str(a)+','+agg+','+'const'+','+str(theta_c))
         
         lamb_c=valid_c_f/num_f
         lamb_l=valid_l_f/num_f
         if lamb_c>self.lamb:
-            pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
+            self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
+            print('adding global: '+str(f)+','+str(v)+','+
+                              str(a)+','+agg+','+'const'+','+str(self.theta_c)+','+str(lamb_c))
         if lamb_l>self.lamb:
-            pc.add_global(f,v,a,agg,'linear',self.theta_l,lamb_l)
+            self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
         

@@ -123,7 +123,7 @@ class PatternCollection(object):
         for i in attr:
             if i not in cur.child:
                 cur.child[i]=TrieEntry()
-            cur=cur.chile[i]
+            cur=cur.child[i]
         if not cur.g:
             cur.g=[]
         cur.g.append(GlobalPattern(f,v,model,theta,lamb))
@@ -139,7 +139,7 @@ class PatternCollection(object):
         for i in attr:
             if i not in cur.child:
                 cur.child[i]=TrieEntry()
-            cur=cur.chile[i]
+            cur=cur.child[i]
         if not cur.l:
             cur.l=[]
         cur.l.append(LocalPattern(f,f_value,v,model,theta))
