@@ -2,7 +2,6 @@ import sys
 import psycopg2
 from sqlalchemy import create_engine
 from PatternFinder import PatternFinder
-#from PatternCollection import PatternCollection
 
 def main():
     #pc=PC()

@@ -1,51 +1,57 @@
-import csv
-from itertools import combinations
 
-
-class GlobalRegressionConstraint(object):
-    """      
-        Attributes:
-            F: set of indices of fixed attributes
-            V: set of indices of variable attributes
-            a: index of attribute to be aggregated
-            agg: aggregate function
-            model: regression model type of agg(B) on V
-            _theta: threshold of goodness of fit
-            _lambda: percentage of f that satisfies the model
-    """
-
-    def __init__(self, f, v, a, agg, model, _theta, _lambda):
-        self.F = f
-        self.V = v
-        self.a = a
-        self.agg = agg
+class GlobalPattern(object):
+    
+    def __init__(self, f, v, model, theta, lamb):
+        self.f = f
+        self.v = v
         self.model = model
-        self._theta = _theta
-        self._lambda = _lambda
+        self.theta = theta
+        self.lamb = lamb
+        
 
+class LocalPattern(object):
+    
+    def __init__(self, f, f_value, v, model, theta):
+        self.f = f
+        self.f_value = f_value
+        self.v = v
+        self.model = model
+        self.theta = theta
 
 class SetTrie(object):
 
     def __init__(self):
         self.root = TrieEntry()
-
-    def search_subset(self, g):
+        
+    def search(self, attr):
         """
-        :param g: tuple of int
-        :return: list of constraints
+        :param attr: list of sorted int
+        :return: 2 lists of patterns
         """
-        global res
-        res = []
-        self.__search_subset(self.root, g, 0)
-        return res
+        cur=self.root
+        for i in attr:
+            if i not in cur.child:
+                break
+            cur=cur.child[i]
+        else:
+            return cur.l, cur.g
+        return None, None
 
-    def __search_subset(self, te, g, start):
-        for i in range(start,len(g)):
-            if g[i] in te.child:
-                ne = te.child[g[i]]
-                if ne.val:
-                    res.extend(ne.val)
-                self.__search_subset(ne, g, i+1)
+    def search_subset(self, attr):
+        loc = []
+        glob = []
+        self.__search_subset(self.root, attr, 0, loc, glob)
+        return loc, glob
+
+    def __search_subset(self, te, attr, start, loc, glob):
+        for i in range(start,len(attr)):
+            if attr[i] in te.child:
+                ne = te.child[attr[i]]
+                if ne.l:
+                    loc+=ne.l
+                if ne.g:
+                    glob+=ne.g
+                self.__search_subset(ne, attr, i+1, loc, glob)
 
 
 class TrieEntry(object):
@@ -53,80 +59,88 @@ class TrieEntry(object):
         Attributes:
             child: dictionary that points to the group that has G
                       as prefix
-            val: array of the list of constraints under the group
+            g: list of global patterns under the group
+            l: list of local patterns under the group
     """
     def __init__(self):
-        self.val = None
+        self.g = None
+        self.l = None
         self.child = {}
 
 
-class GlobalConstraintCollection(object):
+class PatternCollection(object):
     """
         Attributes:
             header: list of attribute names
             index: dict that maps attribute names to their index in header
-            a: list of dictionaries. Each index is a B, and each
+            a: list of dictionaries. Each index is an attr, and each
                dictionary maps an aggregate function to the root of the
-               trie that stores the info of existing groups
+               trie that stores patterns
     """
     
-    def __init__(self,header):
+    def __init__(self, header):
         """
         type header: list of strings
         """
         self.header = header
+        self.index={}
         for i in range(len(header)):
             self.index[header[i]] = i
         self.a = [{} for i in range(len(header))]
         
-    def search(self, a, g, agg):
+    def search(self, a, attr, agg):
         """
         type a: string
-        type g: set of strings
+        type attr: list of strings
         type agg: string
         """
-        return self.__search_int(self.index[a],
-                                 tuple([self.index[s] for s in g].sort()), agg)
+        return self.a[self.index[a]][agg].search([self.index[i] for i in attr].sort())
 
-    def __search_int(self, a, g, agg):
-        if g in self.a[a][agg]:
-            return self.a[a][agg][g]
-        else:
-            return None
-
-    def search_subset(self, b, g, agg):
+    def search_subset(self, a, attr, agg):
         """
         type b: string
         type g: set of strings
         """
-        b = self.index[b]
-        g = tuple([self.index[s] for s in g].sort())
-        if agg not in self.cur_set[b]:
-            return None
-        else:
-            return self.cur_set[b][agg].search_subset(g)
+        return self.a[self.index[a]][agg].search_subset([self.index[i] for i in attr].sort())
 
-    def add_constraint(self, f, v, b, agg, model, _theta, _lambda):
+    def add_global(self, f, v, a, agg, model, theta, lamb):
         """      
-            type F: set of strings
-            type V: set of strings
-            type B: string
+            type f: list of strings
+            type v: list of strings
+            type a: string
             type agg: string
             model: string
-            _theta:
-            _lambda:
+            theta: float
+            lamb: float
         """
-        f = set([self.index[s] for s in f])
-        v = set([self.index[s] for s in v])
-        b = self.index[b]
-        grc = GlobalRegressionConstraint(f, v, b, agg, model, _theta, _lambda)
-        g = tuple(f.union(v))
-        try:
-            self.B[b][agg][g].append(grc)
-        except:
-            self.B[b][agg][g] = [grc]
-            if agg not in self.cur_set[b]:
-                self.cur_set[b][agg] = SetTrie()
-            self.cur_set[b][agg].add_group(g, self.B[b][agg][g])
-
+        a=self.index[a]
+        f=[self.index[i] for i in f]
+        v=[self.index[j] for j in v]
+        attr=sorted(f+v)
+        if agg not in self.a[a]:
+            self.a[a][agg]=SetTrie()
+        cur=self.a[a][agg].root
+        for i in attr:
+            if i not in cur.child:
+                cur.child[i]=TrieEntry()
+            cur=cur.chile[i]
+        if not cur.g:
+            cur.g=[]
+        cur.g.append(GlobalPattern(f,v,model,theta,lamb))
+    
+    def add_local(self, f, f_value, v, a, agg, model, theta):
+        a=self.index[a]
+        f=[self.index[i] for i in f]
+        v=[self.index[j] for j in v]
+        attr=sorted(f+v)
+        if agg not in self.a[a]:
+            self.a[a][agg]=SetTrie()
+        cur=self.a[a][agg].root
+        for i in attr:
+            if i not in cur.child:
+                cur.child[i]=TrieEntry()
+            cur=cur.chile[i]
+        if not cur.l:
+            cur.l=[]
+        cur.l.append(LocalPattern(f,f_value,v,model,theta))
     

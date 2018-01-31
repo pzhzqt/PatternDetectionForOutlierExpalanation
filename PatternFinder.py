@@ -1,6 +1,7 @@
 import pandas as pd
 from itertools import combinations
 from sklearn.linear_model import LinearRegression
+import PatternCollection as PC
 
 class PatternFinder:
     conn=None
@@ -11,6 +12,7 @@ class PatternFinder:
     cat=None
     num=None
     schema=None
+    pc=None
     
     def __init__(self, conn, theta_c=0.15, theta_l=0.75, lamb=0.8):
         self.conn=conn
@@ -36,6 +38,8 @@ class PatternFinder:
                 self.cat.append(col)
     
     def findPattern(self):
+        pc=PC.PatternCollection(list(self.schema))
+        
         for a in self.cat:
             agg="count"
             cube=pd.read_sql(self.formCube(a,agg), self.conn)
@@ -49,7 +53,7 @@ class PatternFinder:
                             v=list(v)
                             f=[k for k in g if k not in v]
                             l=0 #l indicates if we fit linear model
-                            if all([x in num for x in v]):
+                            if all([x in self.num for x in v]):
                                 l=1
                             self.fitmodel(d,f,v,a,agg,l)
     
@@ -76,41 +80,55 @@ class PatternFinder:
         
         for index,row in fd.iterrows():
             thisKey=row[f]
-            if oldKey and oldKey!=thisKey:
+            if oldKey is not None and any(oldKey!=thisKey):
                 temp=fd[oldIndex:index]
+                num_f+=1
                 
                 if l==1: #fitting linear
                     lr=LinearRegression()
                     lr.fit(temp[v],temp[agg])
-                    num_f+=1
-                    if lr.score(temp[v],temp[agg])>self.theta_l:
+                    theta_l=lr.score(temp[v],temp[agg])
+                    if theta_l>self.theta_l:
                         valid_l_f+=1
-                        #pc.add_local()
+                        pc.add_local(f,list(oldKey),v,a,agg,'linear',theta_l)
+                        print('adding local: '+str(f)+','+str(list(oldKey))+','+str(v)+','+
+                              str(a)+','+agg+','+'linear'+','+theta_l)
                         
                 #fitting constant
-                if pd.DataFrame.std(temp[agg])/pd.DataFrame.mean(temp[agg])<self.theta_c:
+                theta_c=pd.DataFrame.std(temp[agg])/pd.DataFrame.mean(temp[agg])
+                if theta_c<self.theta_c:
                     valid_c_f+=1
-                    #pc.add_local()
+                    pc.add_local(f,list(oldKey),v,a,agg,'const',theta_c)
+                    print('adding local: '+str(f)+','+str(list(oldKey))+','+str(v)+','+
+                              str(a)+','+agg+','+'const'+','+theta_c)
                     
                 oldIndex=index
             oldKey=thisKey
             
-        if oldKey:
+        if oldKey is not None:
             temp=fd[oldIndex:]
+            num_f+=1
             
             if l==1:
                 lr=LinearRegression()
                 lr.fit(temp[v],temp[agg])
-                num_f+=1
-                if lr.score(temp[v],temp[agg])>self.theta_l:
-                    valid_f+=1
-                    #pc.add_local()
-            if pd.DataFrame.std(temp[agg])/pd.DataFrame.mean(temp[agg])<self.theta_c:
+                theta_l=lr.score(temp[v],temp[agg])
+                if theta_l>self.theta_l:
+                    valid_l_f+=1
+                    pc.add_local(f,list(oldKey),v,a,agg,'linear',theta_l)
+                    print('adding local: '+str(f)+','+str(list(oldKey))+','+str(v)+','+
+                              str(a)+','+agg+','+'linear'+','+theta_l)
+            theta_c=pd.DataFrame.std(temp[agg])/pd.DataFrame.mean(temp[agg])
+            if theta_c<self.theta_c:
                 valid_c_f+=1
-                #pc.add_local()
-                
-        if valid_c_f/num_f>self.lamb:
-            #pc.add_global()
-        if valid_l_f/num_f>self.lamb:
-            #pc.add_global()
+                pc.add_local(f,list(oldKey),v,a,agg,'const',theta_c)
+                print('adding local: '+str(f)+','+str(list(oldKey))+','+str(v)+','+
+                              str(a)+','+agg+','+'const'+','+theta_c)
+        
+        lamb_c=valid_c_f/num_f
+        lamb_l=valid_l_f/num_f
+        if lamb_c>self.lamb:
+            pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
+        if lamb_l>self.lamb:
+            pc.add_global(f,v,a,agg,'linear',self.theta_l,lamb_l)
         
