@@ -32,11 +32,17 @@ class PatternFinder:
         self.cat=[]
         self.num=[]
         for col in self.schema:
+            self.cat.append(col)
+            '''
+            if self.schema[col].dtype==bool:
+                self.cat.append(col)
+                continue
             try:
                 float(self.schema[col])
                 self.num.append(col)
-            except ValueError:
+            except:
                 self.cat.append(col)
+                '''
     
     def findPattern(self):
 #        self.pc=PC.PatternCollection(list(self.schema))
@@ -63,28 +69,29 @@ class PatternFinder:
                 aggList=["count"]
             else:
                 aggList=["count","sum"]
-            for agg in aggList:
-                cube=pd.read_sql(self.formCube(a,agg), self.conn)
-                cols=[col for col in self.schema if col!=a]
-                for i in range(min(len(cols),4),0,-1):
-                    for g in combinations(cols,i):
-                        d=cube.query(self.aggQuery(g,cols))
-                        for j in range(len(g)-1,0,-1):
-                        #q: Do we allow f to be empty set?
-                            for v in combinations(g,j):
-                                v=list(v)
-                                f=[k for k in g if k not in v]
-                                l=0 #l indicates if we fit linear model
-                                if all([x in self.num for x in v]):
-                                    l=1
-                                self.fitmodel(d,f,v,a,agg,l)
+            for agg in aggList:                
+                col_all=[col for col in self.schema if col!=a]
+                for cols in combinations(col_all,4):
+                    cube=pd.read_sql(self.formCube(a,agg,cols), self.conn)
+                    for i in range(min(len(cols),4),0,-1):
+                        for g in combinations(cols,i):
+                            d=cube.query(self.aggQuery(g,cols))
+                            for j in range(len(g)-1,0,-1):
+                            #q: Do we allow f to be empty set?
+                                for v in combinations(g,j):
+                                    v=list(v)
+                                    f=[k for k in g if k not in v]
+                                    l=0 #l indicates if we fit linear model
+                                    if all([x in self.num for x in v]):
+                                        l=1
+                                    self.fitmodel(d,f,v,a,agg,l)
     
-    def formCube(self, a, agg):
-        group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a]+
-                        [cat for cat in self.cat if cat!=a])
+    def formCube(self, a, agg,attr):
+        group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a and num in attr]+
+                        [cat for cat in self.cat if cat!=a and cat in attr])
         grouping=",".join(["CAST("+num+" AS NUMERIC), GROUPING(CAST("+num+" AS NUMERIC)) as g_"+num
-                        for num in self.num if num!=a]+
-            [cat+", GROUPING("+cat+") as g_"+cat for cat in self.cat if cat!=a])
+                        for num in self.num if num!=a and num in attr]+
+            [cat+", GROUPING("+cat+") as g_"+cat for cat in self.cat if cat!=a and cat in attr])
         if a in self.num:
             a="CAST("+a+" AS NUMERIC)"
         query="SELECT "+agg+"("+a+"), "+grouping+" FROM "+self.table+" GROUP BY CUBE("+group+")"

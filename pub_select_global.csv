@@ -1,0 +1,19 @@
+fixed,variable,in_a,agg,model,theta,lambda
+[pubcount],"[name, year]",pubkey,count,const,0.75,0.888888888888889
+[year],"[name, pubcount]",pubkey,count,const,0.75,1
+[name],"[year, pubcount]",pubkey,count,const,0.75,0.967509025270758
+"[year, pubcount]",[name],pubkey,count,const,0.75,0.833333333333333
+[year],[name],pubkey,count,const,0.75,1
+[name],[year],pubkey,count,const,0.75,0.918772563176895
+[pubcount],"[name, pubkey]",year,count,const,0.75,0.888888888888889
+[pubkey],"[name, pubcount]",year,count,const,0.75,0.909090909090909
+[year],"[name, pubkey]",pubcount,count,const,0.75,1
+[pubkey],"[name, year]",pubcount,count,const,0.75,1
+[name],"[pubkey, year]",pubcount,count,const,0.75,1
+"[pubkey, year]",[name],pubcount,count,const,0.75,1
+[year],[name],pubcount,count,const,0.75,1
+[name],[year],pubcount,count,const,0.75,0.918772563176895
+[year],"[name, pubkey]",pubcount,sum,const,0.75,1
+[pubkey],"[name, year]",pubcount,sum,const,0.75,1
+[name],"[pubkey, year]",pubcount,sum,const,0.75,0.907942238267148
+"[pubkey, year]",[name],pubcount,sum,const,0.75,1
