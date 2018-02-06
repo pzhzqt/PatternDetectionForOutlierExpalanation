@@ -97,10 +97,7 @@ class PatternCollection(object):
         return self.a[self.index[a]][agg].search([self.index[i] for i in attr].sort())
 
     def search_subset(self, a, attr, agg):
-        """
-        type b: string
-        type g: set of strings
-        """
+
         return self.a[self.index[a]][agg].search_subset([self.index[i] for i in attr].sort())
 
     def add_global(self, f, v, a, agg, model, theta, lamb):

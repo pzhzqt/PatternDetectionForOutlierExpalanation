@@ -1,6 +1,7 @@
 import pandas as pd
 from itertools import combinations
-from sklearn.linear_model import LinearRegression
+import statsmodels.formula.api as sm
+from scipy.stats import chisquare
 import PatternCollection as PC
 
 class PatternFinder:
@@ -14,7 +15,7 @@ class PatternFinder:
     schema=None
     pc=None
     
-    def __init__(self, conn, theta_c=0.15, theta_l=0.75, lamb=0.8):
+    def __init__(self, conn, theta_c=0.75, theta_l=0.75, lamb=0.8):
         self.conn=conn
         self.theta_c=theta_c
         self.theta_l=theta_l
@@ -38,24 +39,45 @@ class PatternFinder:
                 self.cat.append(col)
     
     def findPattern(self):
-        self.pc=PC.PatternCollection(list(self.schema))
+#        self.pc=PC.PatternCollection(list(self.schema))
+        self.conn.execute('create table '+self.table+'_local('+
+                     'fixed varchar,'+
+                     'fixed_value varchar,'+
+                     'variable varchar,'+
+                     'in_a varchar,'+
+                     'agg varchar,'+
+                     'model varchar,'+
+                     'theta float);')
         
-        for a in self.cat:
-            agg="count"
-            cube=pd.read_sql(self.formCube(a,agg), self.conn)
-            cols=[col for col in self.schema if col!=a]
-            for i in range(len(cols),0,-1):
-                for g in combinations(cols,i):
-                    d=cube.query(self.aggQuery(g,cols))
-                    for j in range(len(g)-1,0,-1):
-                    #q: Do we allow f to be empty set?
-                        for v in combinations(g,j):
-                            v=list(v)
-                            f=[k for k in g if k not in v]
-                            l=0 #l indicates if we fit linear model
-                            if all([x in self.num for x in v]):
-                                l=1
-                            self.fitmodel(d,f,v,a,agg,l)
+        self.conn.execute('create table '+self.table+'_global('+
+                     'fixed varchar,'+
+                     'variable varchar,'+
+                     'in_a varchar,'+
+                     'agg varchar,'+
+                     'model varchar,'+
+                     'theta float,'+
+                     'lambda float);')
+        
+        for a in self.schema:
+            if a in self.cat:
+                aggList=["count"]
+            else:
+                aggList=["count","sum"]
+            for agg in aggList:
+                cube=pd.read_sql(self.formCube(a,agg), self.conn)
+                cols=[col for col in self.schema if col!=a]
+                for i in range(min(len(cols),4),0,-1):
+                    for g in combinations(cols,i):
+                        d=cube.query(self.aggQuery(g,cols))
+                        for j in range(len(g)-1,0,-1):
+                        #q: Do we allow f to be empty set?
+                            for v in combinations(g,j):
+                                v=list(v)
+                                f=[k for k in g if k not in v]
+                                l=0 #l indicates if we fit linear model
+                                if all([x in self.num for x in v]):
+                                    l=1
+                                self.fitmodel(d,f,v,a,agg,l)
     
     def formCube(self, a, agg):
         group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a]+
@@ -63,6 +85,8 @@ class PatternFinder:
         grouping=",".join(["CAST("+num+" AS NUMERIC), GROUPING(CAST("+num+" AS NUMERIC)) as g_"+num
                         for num in self.num if num!=a]+
             [cat+", GROUPING("+cat+") as g_"+cat for cat in self.cat if cat!=a])
+        if a in self.num:
+            a="CAST("+a+" AS NUMERIC)"
         query="SELECT "+agg+"("+a+"), "+grouping+" FROM "+self.table+" GROUP BY CUBE("+group+")"
         return query
         
@@ -92,24 +116,20 @@ class PatternFinder:
             if oldKey and oldKey!=thisKey:
                 temp=fd[oldIndex:index]
                 num_f+=1
-                print('fitting: '+str(f)+','+str(oldKey)+','+str(v)+','+agg+'('+a+')')
                 if l==1: #fitting linear
-                    lr=LinearRegression()
-                    lr.fit(temp[v],temp[agg])
-                    theta_l=lr.score(temp[v],temp[agg])
-                    if theta_l>self.theta_l:
+                    lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
+                    theta_l=lr.rsquared_adj
+                    if theta_l and theta_l>self.theta_l:
                         valid_l_f+=1
-                        self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                        print('adding local: '+str(f)+','+str(oldKey)+','+str(v)+','+
-                              str(a)+','+agg+','+'linear'+','+str(theta_l))
+                    #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                        self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l))
                         
                 #fitting constant
-                theta_c=pd.DataFrame.std(temp[agg])/pd.DataFrame.mean(temp[agg])
-                if theta_c<self.theta_c:
+                theta_c=chisquare(temp[agg])[1]
+                if theta_c>self.theta_c:
                     valid_c_f+=1
-                    self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                    print('adding local: '+str(f)+','+str(oldKey)+','+str(v)+','+
-                              str(a)+','+agg+','+'const'+','+str(theta_c))
+                    #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c))
                     
                 oldIndex=index
             oldKey=thisKey
@@ -119,27 +139,44 @@ class PatternFinder:
             num_f+=1
             
             if l==1:
-                lr=LinearRegression()
-                lr.fit(temp[v],temp[agg])
-                theta_l=lr.score(temp[v],temp[agg])
+                lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
+                theta_l=lr.rsquared_adj
                 if theta_l>self.theta_l:
                     valid_l_f+=1
-                    self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                    print('adding local: '+str(f)+','+str(oldKey)+','+str(v)+','+
-                              str(a)+','+agg+','+'linear'+','+str(theta_l))
-            theta_c=pd.DataFrame.std(temp[agg])/pd.DataFrame.mean(temp[agg])
-            if theta_c<self.theta_c:
+                    #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l))
+            theta_c=chisquare(temp[agg])[1]
+            if theta_c>self.theta_c:
                 valid_c_f+=1
-                self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                print('adding local: '+str(f)+','+str(oldKey)+','+str(v)+','+
-                              str(a)+','+agg+','+'const'+','+str(theta_c))
+                #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c))
         
         lamb_c=valid_c_f/num_f
         lamb_l=valid_l_f/num_f
         if lamb_c>self.lamb:
-            self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
-            print('adding global: '+str(f)+','+str(v)+','+
-                              str(a)+','+agg+','+'const'+','+str(self.theta_c)+','+str(lamb_c))
+            #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
+            self.conn.execute(self.addGlobal(f,v,a,agg,'const',self.theta_c,lamb_c))
         if lamb_l>self.lamb:
-            self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
+            #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
+            self.conn.execute(self.addGlobal(f,v,a,agg,'linear',self.theta_l,lamb_l))
+            
+    def addLocal(self,f,f_val,v,a,agg,model,theta):
+        f="'"+str(f).replace("'","")+"'"
+        f_val="'"+str(f_val).replace("'","")+"'"
+        v="'"+str(v).replace("'","")+"'"
+        a="'"+a+"'"
+        agg="'"+agg+"'"
+        model="'"+model+"'"
+        theta="'"+str(theta)+"'"
+        return 'insert into '+self.table+'_local values('+','.join([f,f_val,v,a,agg,model,theta])+');'
+    
+    def addGlobal(self,f,v,a,agg,model,theta,lamb):
+        f="'"+str(f).replace("'","")+"'"
+        v="'"+str(v).replace("'","")+"'"
+        a="'"+a+"'"
+        agg="'"+agg+"'"
+        model="'"+model+"'"
+        theta="'"+str(theta)+"'"
+        lamb="'"+str(lamb)+"'"
+        return 'insert into '+self.table+'_global values('+','.join([f,v,a,agg,model,theta,lamb])+');'
         
