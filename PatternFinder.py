@@ -1,7 +1,8 @@
 import pandas as pd
 from itertools import combinations
 import statsmodels.formula.api as sm
-from scipy.stats import chisquare
+from scipy.stats import chisquare,mode
+from numpy import percentile,mean
 import PatternCollection as PC
 
 class PatternFinder:
@@ -32,17 +33,11 @@ class PatternFinder:
         self.cat=[]
         self.num=[]
         for col in self.schema:
-            self.cat.append(col)
-            '''
-            if self.schema[col].dtype==bool:
-                self.cat.append(col)
-                continue
             try:
                 float(self.schema[col])
                 self.num.append(col)
             except:
                 self.cat.append(col)
-                '''
     
     def findPattern(self):
 #        self.pc=PC.PatternCollection(list(self.schema))
@@ -53,7 +48,8 @@ class PatternFinder:
                      'in_a varchar,'+
                      'agg varchar,'+
                      'model varchar,'+
-                     'theta float);')
+                     'theta float,'+
+                     'stats varchar);')
         
         self.conn.execute('create table '+self.table+'_global('+
                      'fixed varchar,'+
@@ -71,7 +67,11 @@ class PatternFinder:
                 aggList=["count","sum"]
             for agg in aggList:                
                 col_all=[col for col in self.schema if col!=a]
-                for cols in combinations(col_all,4):
+                if len(col_all)>4:
+                    col_4=combinations(col_all,4)
+                else:
+                    col_4=[col_all]
+                for cols in col_4:
                     cube=pd.read_sql(self.formCube(a,agg,cols), self.conn)
                     for i in range(min(len(cols),4),0,-1):
                         for g in combinations(cols,i):
@@ -123,20 +123,22 @@ class PatternFinder:
             if oldKey and oldKey!=thisKey:
                 temp=fd[oldIndex:index]
                 num_f+=1
+                describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25)
+                                  ,percentile(temp[agg],50),percentile(temp[agg],75)]
                 if l==1: #fitting linear
                     lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
                     theta_l=lr.rsquared_adj
                     if theta_l and theta_l>self.theta_l:
                         valid_l_f+=1
                     #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                        self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l))
+                        self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe))
                         
                 #fitting constant
                 theta_c=chisquare(temp[agg])[1]
                 if theta_c>self.theta_c:
                     valid_c_f+=1
                     #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c))
+                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe))
                     
                 oldIndex=index
             oldKey=thisKey
@@ -144,19 +146,21 @@ class PatternFinder:
         if oldKey is not None:
             temp=fd[oldIndex:]
             num_f+=1
-            
+            describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25,interpolation='nearest')
+                                  ,percentile(temp[agg],50,interpolation='nearest'),
+                                  percentile(temp[agg],75,interpolation='nearest')]
             if l==1:
                 lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
                 theta_l=lr.rsquared_adj
                 if theta_l>self.theta_l:
                     valid_l_f+=1
                     #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l))
+                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe))
             theta_c=chisquare(temp[agg])[1]
             if theta_c>self.theta_c:
                 valid_c_f+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c))
+                self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe))
         
         lamb_c=valid_c_f/num_f
         lamb_l=valid_l_f/num_f
@@ -167,7 +171,7 @@ class PatternFinder:
             #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
             self.conn.execute(self.addGlobal(f,v,a,agg,'linear',self.theta_l,lamb_l))
             
-    def addLocal(self,f,f_val,v,a,agg,model,theta):
+    def addLocal(self,f,f_val,v,a,agg,model,theta,describe):
         f="'"+str(f).replace("'","")+"'"
         f_val="'"+str(f_val).replace("'","")+"'"
         v="'"+str(v).replace("'","")+"'"
@@ -175,7 +179,8 @@ class PatternFinder:
         agg="'"+agg+"'"
         model="'"+model+"'"
         theta="'"+str(theta)+"'"
-        return 'insert into '+self.table+'_local values('+','.join([f,f_val,v,a,agg,model,theta])+');'
+        describe="'"+str(describe).replace("'","")+"'"
+        return 'insert into '+self.table+'_local values('+','.join([f,f_val,v,a,agg,model,theta,describe])+');'
     
     def addGlobal(self,f,v,a,agg,model,theta,lamb):
         f="'"+str(f).replace("'","")+"'"
