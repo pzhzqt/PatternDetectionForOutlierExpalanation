@@ -33,32 +33,22 @@ class PatternFinder:
         self.cat=[]
         self.num=[]
         for col in self.schema:
+            if col=='year':
+                self.num.append(col)
+            else:
+                self.cat.append(col)
+                
+            '''
             try:
                 float(self.schema[col])
                 self.num.append(col)
             except:
                 self.cat.append(col)
+                '''
     
     def findPattern(self):
 #        self.pc=PC.PatternCollection(list(self.schema))
-        self.conn.execute('create table '+self.table+'_local('+
-                     'fixed varchar,'+
-                     'fixed_value varchar,'+
-                     'variable varchar,'+
-                     'in_a varchar,'+
-                     'agg varchar,'+
-                     'model varchar,'+
-                     'theta float,'+
-                     'stats varchar);')
-        
-        self.conn.execute('create table '+self.table+'_global('+
-                     'fixed varchar,'+
-                     'variable varchar,'+
-                     'in_a varchar,'+
-                     'agg varchar,'+
-                     'model varchar,'+
-                     'theta float,'+
-                     'lambda float);')
+        self.createTable()
         
         for a in self.schema:
             if a in self.cat:
@@ -72,10 +62,10 @@ class PatternFinder:
                 else:
                     col_4=[col_all]
                 for cols in col_4:
-                    cube=pd.read_sql(self.formCube(a,agg,cols), self.conn)
+                    self.formCube(a,agg,cols)
                     for i in range(min(len(cols),4),0,-1):
                         for g in combinations(cols,i):
-                            d=cube.query(self.aggQuery(g,cols))
+                            d=pd.read_sql(self.aggQuery(g,cols),con=self.conn)
                             for j in range(len(g)-1,0,-1):
                             #q: Do we allow f to be empty set?
                                 for v in combinations(g,j):
@@ -85,6 +75,7 @@ class PatternFinder:
                                     if all([x in self.num for x in v]):
                                         l=1
                                     self.fitmodel(d,f,v,a,agg,l)
+                    self.dropCube()
     
     def formCube(self, a, agg,attr):
         group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a and num in attr]+
@@ -94,8 +85,13 @@ class PatternFinder:
             [cat+", GROUPING("+cat+") as g_"+cat for cat in self.cat if cat!=a and cat in attr])
         if a in self.num:
             a="CAST("+a+" AS NUMERIC)"
-        query="SELECT "+agg+"("+a+"), "+grouping+" FROM "+self.table+" GROUP BY CUBE("+group+")"
-        return query
+        query="CREATE TABLE cube AS SELECT "+agg+"("+a+"), "+grouping+" FROM "+self.table+" GROUP BY CUBE("+group+")"
+        self.conn.execute(query)
+        indx=",".join(["g_"+col for col in attr])
+        self.conn.execute("CREATE INDEX in_a on cube("+indx+");")
+    
+    def dropCube(self):
+        self.conn.execute("DROP TABLE cube;")
         
     def aggQuery(self, g, cols):
         #=======================================================================
@@ -108,7 +104,7 @@ class PatternFinder:
         if len(g)<len(cols):
             unused=" and ".join(["g_"+b+"==1" for b in cols if b not in g])
             res=res+" and "+unused
-        return res
+        return "SELECT * FROM cube where "+res+";"
     
     def fitmodel(self,d,f,v,a,agg,l=0):
         fd=d.sort_values(by=f).reset_index(drop=True)
@@ -191,4 +187,26 @@ class PatternFinder:
         theta="'"+str(theta)+"'"
         lamb="'"+str(lamb)+"'"
         return 'insert into '+self.table+'_global values('+','.join([f,v,a,agg,model,theta,lamb])+');'
+    
+    def createTable(self):
+        self.conn.execute('create table IF NOT EXISTS '+self.table+'_local('+
+                     'fixed varchar,'+
+                     'fixed_value varchar,'+
+                     'variable varchar,'+
+                     'in_a varchar,'+
+                     'agg varchar,'+
+                     'model varchar,'+
+                     'theta float,'+
+                     'stats varchar);')
+        self.conn.execute('DELETE FROM '+self.table+'_local;')
+        
+        self.conn.execute('create table IF NOT EXISTS '+self.table+'_global('+
+                     'fixed varchar,'+
+                     'variable varchar,'+
+                     'in_a varchar,'+
+                     'agg varchar,'+
+                     'model varchar,'+
+                     'theta float,'+
+                     'lambda float);')
+        self.conn.execute('DELETE FROM '+self.table+'_global')
         
