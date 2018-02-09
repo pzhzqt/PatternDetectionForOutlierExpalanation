@@ -100,9 +100,9 @@ class PatternFinder:
         #     null=" and ".join([b+".isna()" for b in cols if b not in g])
         #     res=res+" and "+null
         #=======================================================================
-        res=" and ".join(["g_"+a+"==0" for a in g])
+        res=" and ".join(["g_"+a+"=0" for a in g])
         if len(g)<len(cols):
-            unused=" and ".join(["g_"+b+"==1" for b in cols if b not in g])
+            unused=" and ".join(["g_"+b+"=1" for b in cols if b not in g])
             res=res+" and "+unused
         return "SELECT * FROM cube where "+res+";"
     
