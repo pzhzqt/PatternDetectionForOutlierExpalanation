@@ -1,0 +1,320 @@
+fixed,variable,in_a,agg,model,theta,lambda
+[iucr],"[case_num, date, block]",id,count,const,0.75,0.9209726443769
+[block],"[case_num, date, iucr]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, iucr]",id,count,const,0.75,1
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[iucr],"[case_num, date]",id,count,const,0.75,0.9209726443769
+[date],"[case_num, iucr]",id,count,const,0.75,1
+[iucr],"[case_num, block]",id,count,const,0.75,0.9209726443769
+[block],"[case_num, iucr]",id,count,const,0.75,0.835019987755249
+[iucr],"[date, block]",id,count,const,0.75,0.908814589665654
+[block],"[date, iucr]",id,count,const,0.75,0.831778730147297
+[date],"[block, iucr]",id,count,const,0.75,0.994520547945206
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[iucr],[case_num],id,count,const,0.75,0.9209726443769
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[primary_type],"[case_num, date, block]",id,count,const,0.75,1
+[block],"[case_num, date, primary_type]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, primary_type]",id,count,const,0.75,1
+"[date, primary_type]","[case_num, block]",id,count,const,0.75,0.847136222910217
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[primary_type],"[case_num, date]",id,count,const,0.75,1
+[date],"[case_num, primary_type]",id,count,const,0.75,1
+"[date, primary_type]",[case_num],id,count,const,0.75,0.847136222910217
+[primary_type],"[case_num, block]",id,count,const,0.75,1
+[block],"[case_num, primary_type]",id,count,const,0.75,0.835019987755249
+[primary_type],"[date, block]",id,count,const,0.75,1
+[block],"[date, primary_type]",id,count,const,0.75,0.830446213130695
+[date],"[block, primary_type]",id,count,const,0.75,0.989041095890411
+"[date, primary_type]",[block],id,count,const,0.75,0.839912280701754
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[primary_type],[case_num],id,count,const,0.75,1
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[description],"[case_num, date, block]",id,count,const,0.75,0.918831168831169
+[block],"[case_num, date, description]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, description]",id,count,const,0.75,1
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[description],"[case_num, date]",id,count,const,0.75,0.918831168831169
+[date],"[case_num, description]",id,count,const,0.75,1
+[description],"[case_num, block]",id,count,const,0.75,0.918831168831169
+[block],"[case_num, description]",id,count,const,0.75,0.835019987755249
+[description],"[date, block]",id,count,const,0.75,0.905844155844156
+[block],"[date, description]",id,count,const,0.75,0.831598660280189
+[date],"[block, description]",id,count,const,0.75,0.994520547945206
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[description],[case_num],id,count,const,0.75,0.918831168831169
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[location_description],"[case_num, date, block]",id,count,const,0.75,0.914728682170543
+[block],"[case_num, date, location_description]",id,count,const,0.75,0.835092015702092
+[date],"[case_num, block, location_description]",id,count,const,0.75,1
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[location_description],"[case_num, date]",id,count,const,0.75,0.914728682170543
+[date],"[case_num, location_description]",id,count,const,0.75,1
+[location_description],"[case_num, block]",id,count,const,0.75,0.914728682170543
+[block],"[case_num, location_description]",id,count,const,0.75,0.835092015702092
+[location_description],"[date, block]",id,count,const,0.75,0.906976744186046
+[block],"[date, location_description]",id,count,const,0.75,0.829978031476213
+[date],"[block, location_description]",id,count,const,0.75,0.991780821917808
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[location_description],[case_num],id,count,const,0.75,0.914728682170543
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[arrest],"[case_num, date, block]",id,count,const,0.75,1
+[block],"[case_num, date, arrest]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, arrest]",id,count,const,0.75,1
+"[date, arrest]","[case_num, block]",id,count,const,0.75,1
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[arrest],"[case_num, date]",id,count,const,0.75,1
+[date],"[case_num, arrest]",id,count,const,0.75,1
+"[date, arrest]",[case_num],id,count,const,0.75,1
+[arrest],"[case_num, block]",id,count,const,0.75,1
+[block],"[case_num, arrest]",id,count,const,0.75,0.835019987755249
+[arrest],"[date, block]",id,count,const,0.75,1
+[block],"[date, arrest]",id,count,const,0.75,0.826952857708791
+[date],"[block, arrest]",id,count,const,0.75,0.989041095890411
+"[date, arrest]",[block],id,count,const,0.75,0.991780821917808
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[arrest],[case_num],id,count,const,0.75,1
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[domestic],"[case_num, date, block]",id,count,const,0.75,1
+[block],"[case_num, date, domestic]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, domestic]",id,count,const,0.75,1
+"[date, domestic]","[case_num, block]",id,count,const,0.75,1
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[domestic],"[case_num, date]",id,count,const,0.75,1
+[date],"[case_num, domestic]",id,count,const,0.75,1
+"[date, domestic]",[case_num],id,count,const,0.75,1
+[domestic],"[case_num, block]",id,count,const,0.75,1
+[block],"[case_num, domestic]",id,count,const,0.75,0.835019987755249
+[domestic],"[date, block]",id,count,const,0.75,1
+[block],"[date, domestic]",id,count,const,0.75,0.827096913602478
+[date],"[block, domestic]",id,count,const,0.75,0.986301369863014
+"[date, domestic]",[block],id,count,const,0.75,0.993150684931507
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[domestic],[case_num],id,count,const,0.75,1
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[beat],"[case_num, date, block]",id,count,const,0.75,1
+[block],"[case_num, date, beat]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, beat]",id,count,const,0.75,1
+"[block, beat]","[case_num, date]",id,count,const,0.75,0.827544949981721
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[beat],"[case_num, date]",id,count,const,0.75,1
+[date],"[case_num, beat]",id,count,const,0.75,1
+[beat],"[case_num, block]",id,count,const,0.75,1
+[block],"[case_num, beat]",id,count,const,0.75,0.835019987755249
+"[block, beat]",[case_num],id,count,const,0.75,0.827511715244774
+[beat],"[date, block]",id,count,const,0.75,0.996350364963504
+[block],"[date, beat]",id,count,const,0.75,0.825944466452984
+[date],"[block, beat]",id,count,const,0.75,0.986301369863014
+"[block, beat]",[date],id,count,const,0.75,0.818006580477916
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[beat],[case_num],id,count,const,0.75,1
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[district],"[case_num, date, block]",id,count,const,0.75,1
+[block],"[case_num, date, district]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, district]",id,count,const,0.75,1
+"[block, district]","[case_num, date]",id,count,const,0.75,0.832589601926618
+"[date, district]","[case_num, block]",id,count,const,0.75,0.999750996015936
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[district],"[case_num, date]",id,count,const,0.75,1
+[date],"[case_num, district]",id,count,const,0.75,1
+"[date, district]",[case_num],id,count,const,0.75,0.999750996015936
+[district],"[case_num, block]",id,count,const,0.75,1
+[block],"[case_num, district]",id,count,const,0.75,0.835019987755249
+"[block, district]",[case_num],id,count,const,0.75,0.832554186145346
+[district],"[date, block]",id,count,const,0.75,0.956521739130435
+[block],"[date, district]",id,count,const,0.75,0.825908452479562
+[date],"[block, district]",id,count,const,0.75,0.986301369863014
+"[block, district]",[date],id,count,const,0.75,0.82348774613968
+"[date, district]",[block],id,count,const,0.75,0.994770916334661
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[district],[case_num],id,count,const,0.75,1
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[ward],"[case_num, date, block]",id,count,const,0.75,0.980392156862745
+[block],"[case_num, date, ward]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, ward]",id,count,const,0.75,1
+"[block, ward]","[case_num, date]",id,count,const,0.75,0.82583771241384
+"[date, ward]","[case_num, block]",id,count,const,0.75,0.997916895077294
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[ward],"[case_num, date]",id,count,const,0.75,0.980392156862745
+[date],"[case_num, ward]",id,count,const,0.75,1
+"[date, ward]",[case_num],id,count,const,0.75,0.997916895077294
+[ward],"[case_num, block]",id,count,const,0.75,0.980392156862745
+[block],"[case_num, ward]",id,count,const,0.75,0.835019987755249
+"[block, ward]",[case_num],id,count,const,0.75,0.825803589708592
+[ward],"[date, block]",id,count,const,0.75,0.96078431372549
+[block],"[date, ward]",id,count,const,0.75,0.825980480426405
+[date],"[block, ward]",id,count,const,0.75,0.986301369863014
+"[block, ward]",[date],id,count,const,0.75,0.816215109533884
+"[date, ward]",[block],id,count,const,0.75,0.989639293937068
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[ward],[case_num],id,count,const,0.75,0.980392156862745
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[community_area],"[case_num, date, block]",id,count,const,0.75,0.987179487179487
+[block],"[case_num, date, community_area]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, community_area]",id,count,const,0.75,1
+"[block, community_area]","[case_num, date]",id,count,const,0.75,0.828563392166514
+"[date, community_area]","[case_num, block]",id,count,const,0.75,0.925898370656945
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[community_area],"[case_num, date]",id,count,const,0.75,0.987179487179487
+[date],"[case_num, community_area]",id,count,const,0.75,1
+"[date, community_area]",[case_num],id,count,const,0.75,0.925898370656945
+[community_area],"[case_num, block]",id,count,const,0.75,0.987179487179487
+[block],"[case_num, community_area]",id,count,const,0.75,0.835019987755249
+"[block, community_area]",[case_num],id,count,const,0.75,0.828528232895014
+[community_area],"[date, block]",id,count,const,0.75,0.974358974358974
+[block],"[date, community_area]",id,count,const,0.75,0.825980480426405
+[date],"[block, community_area]",id,count,const,0.75,0.986301369863014
+"[block, community_area]",[date],id,count,const,0.75,0.819246185219042
+"[date, community_area]",[block],id,count,const,0.75,0.905922178409345
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[community_area],[case_num],id,count,const,0.75,0.987179487179487
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[fbi_code],"[case_num, date, block]",id,count,const,0.75,1
+[block],"[case_num, date, fbi_code]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, fbi_code]",id,count,const,0.75,1
+"[date, fbi_code]","[case_num, block]",id,count,const,0.75,0.909724047306176
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[fbi_code],"[case_num, date]",id,count,const,0.75,1
+[date],"[case_num, fbi_code]",id,count,const,0.75,1
+"[date, fbi_code]",[case_num],id,count,const,0.75,0.909724047306176
+[fbi_code],"[case_num, block]",id,count,const,0.75,1
+[block],"[case_num, fbi_code]",id,count,const,0.75,0.835019987755249
+[fbi_code],"[date, block]",id,count,const,0.75,1
+[block],"[date, fbi_code]",id,count,const,0.75,0.83055425505096
+[date],"[block, fbi_code]",id,count,const,0.75,0.989041095890411
+"[date, fbi_code]",[block],id,count,const,0.75,0.903153745072273
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[fbi_code],[case_num],id,count,const,0.75,1
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[block],"[case_num, date, x_coordinate]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, x_coordinate]",id,count,const,0.75,1
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[date],"[case_num, x_coordinate]",id,count,const,0.75,1
+[block],"[case_num, x_coordinate]",id,count,const,0.75,0.835019987755249
+[block],"[date, x_coordinate]",id,count,const,0.75,0.829221738034357
+[date],"[block, x_coordinate]",id,count,const,0.75,0.991780821917808
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[block],"[case_num, date, y_coordinate]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, y_coordinate]",id,count,const,0.75,1
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[date],"[case_num, y_coordinate]",id,count,const,0.75,1
+[block],"[case_num, y_coordinate]",id,count,const,0.75,0.835019987755249
+[block],"[date, y_coordinate]",id,count,const,0.75,0.829257752007779
+[date],"[block, y_coordinate]",id,count,const,0.75,0.991780821917808
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[year],"[case_num, date, block]",id,count,const,0.75,1
+[block],"[case_num, date, year]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, year]",id,count,const,0.75,1
+"[block, year]","[case_num, date]",id,count,const,0.75,0.835056001728671
+"[date, year]","[case_num, block]",id,count,const,0.75,1
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[year],"[case_num, date]",id,count,const,0.75,1
+[date],"[case_num, year]",id,count,const,0.75,1
+"[date, year]",[case_num],id,count,const,0.75,1
+[year],"[case_num, block]",id,count,const,0.75,1
+[block],"[case_num, year]",id,count,const,0.75,0.835019987755249
+"[block, year]",[case_num],id,count,const,0.75,0.835019987755249
+[year],"[date, block]",id,count,const,0.75,1
+[block],"[date, year]",id,count,const,0.75,0.825908452479562
+[date],"[block, year]",id,count,const,0.75,0.986301369863014
+"[block, year]",[date],id,count,const,0.75,0.825908452479562
+"[date, year]",[block],id,count,const,0.75,0.986301369863014
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[year],[case_num],id,count,const,0.75,1
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[updated_on],"[case_num, date, block]",id,count,const,0.75,0.99601593625498
+[block],"[case_num, date, updated_on]",id,count,const,0.75,0.835092015702092
+[date],"[case_num, block, updated_on]",id,count,const,0.75,1
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[updated_on],"[case_num, date]",id,count,const,0.75,0.99601593625498
+[date],"[case_num, updated_on]",id,count,const,0.75,1
+[updated_on],"[case_num, block]",id,count,const,0.75,0.99601593625498
+[block],"[case_num, updated_on]",id,count,const,0.75,0.835092015702092
+[updated_on],"[date, block]",id,count,const,0.75,0.99203187250996
+[block],"[date, updated_on]",id,count,const,0.75,0.82799726293802
+[date],"[block, updated_on]",id,count,const,0.75,0.991780821917808
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[updated_on],[case_num],id,count,const,0.75,0.99601593625498
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[updated_on],[block],id,count,const,0.75,0.972111553784861
+[block],"[case_num, date, latitude]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, latitude]",id,count,const,0.75,1
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[date],"[case_num, latitude]",id,count,const,0.75,1
+[block],"[case_num, latitude]",id,count,const,0.75,0.835019987755249
+[block],"[date, latitude]",id,count,const,0.75,0.829725933662261
+[date],"[block, latitude]",id,count,const,0.75,0.991780821917808
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[block],"[case_num, date, longitude]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, longitude]",id,count,const,0.75,1
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[date],"[case_num, longitude]",id,count,const,0.75,1
+[block],"[case_num, longitude]",id,count,const,0.75,0.835019987755249
+[block],"[date, longitude]",id,count,const,0.75,0.829725933662261
+[date],"[block, longitude]",id,count,const,0.75,0.991780821917808
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
+[block],[date],id,count,const,0.75,0.825908452479562
+[date],[block],id,count,const,0.75,0.986301369863014
+[block],"[case_num, date, location]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block, location]",id,count,const,0.75,1
+[block],"[case_num, date]",id,count,const,0.75,0.835056001728671
+[date],"[case_num, block]",id,count,const,0.75,1
+[date],"[case_num, location]",id,count,const,0.75,1
+[block],"[case_num, location]",id,count,const,0.75,0.835019987755249
+[block],"[date, location]",id,count,const,0.75,0.829725933662261
+[date],"[block, location]",id,count,const,0.75,0.991780821917808
+[date],[case_num],id,count,const,0.75,1
+[block],[case_num],id,count,const,0.75,0.835019987755249
