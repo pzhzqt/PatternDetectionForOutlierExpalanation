@@ -124,44 +124,46 @@ class PatternFinder:
             if oldKey and oldKey!=thisKey:
                 temp=fd[oldIndex:index]
                 num_f+=1
-                describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25)
-                                  ,percentile(temp[agg],50),percentile(temp[agg],75)]
-                if l==1: #fitting linear
-                    lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
-                    theta_l=lr.rsquared_adj
-                    if theta_l and theta_l>self.theta_l:
-                        valid_l_f+=1
-                    #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                        self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe))
+                if len(temp[agg])>=10:
+                    describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25)
+                                      ,percentile(temp[agg],50),percentile(temp[agg],75)]
+                    if l==1: #fitting linear
+                        lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
+                        theta_l=lr.rsquared_adj
+                        if theta_l and theta_l>self.theta_l:
+                            valid_l_f+=1
+                        #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                            self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe))
+                            
+                    #fitting constant
+                    theta_c=chisquare(temp[agg])[1]
+                    if theta_c>self.theta_c:
+                        valid_c_f+=1
+                        #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                        self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe))
                         
-                #fitting constant
-                theta_c=chisquare(temp[agg])[1]
-                if theta_c>self.theta_c:
-                    valid_c_f+=1
-                    #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe))
-                    
                 oldIndex=index
             oldKey=thisKey
             
         if oldKey is not None:
             temp=fd[oldIndex:]
             num_f+=1
-            describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25,interpolation='nearest')
-                                  ,percentile(temp[agg],50,interpolation='nearest'),
-                                  percentile(temp[agg],75,interpolation='nearest')]
-            if l==1:
-                lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
-                theta_l=lr.rsquared_adj
-                if theta_l>self.theta_l:
-                    valid_l_f+=1
-                    #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe))
-            theta_c=chisquare(temp[agg])[1]
-            if theta_c>self.theta_c:
-                valid_c_f+=1
-                #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe))
+            if len(temp[agg])>=10:
+                describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25,interpolation='nearest')
+                                      ,percentile(temp[agg],50,interpolation='nearest'),
+                                      percentile(temp[agg],75,interpolation='nearest')]
+                if l==1:
+                    lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
+                    theta_l=lr.rsquared_adj
+                    if theta_l>self.theta_l:
+                        valid_l_f+=1
+                        #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                        self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe))
+                theta_c=chisquare(temp[agg])[1]
+                if theta_c>self.theta_c:
+                    valid_c_f+=1
+                    #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe))
         
         lamb_c=valid_c_f/num_f
         lamb_l=valid_l_f/num_f
