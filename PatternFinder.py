@@ -3,6 +3,7 @@ from itertools import combinations
 import statsmodels.formula.api as sm
 from scipy.stats import chisquare,mode
 from numpy import percentile,mean
+from time import time
 import PatternCollection as PC
 
 class PatternFinder:
@@ -32,31 +33,33 @@ class PatternFinder:
         
         self.cat=[]
         self.num=[]
-        for col in self.schema:
-            if col=='year':
-                self.num.append(col)
-            else:
-                self.cat.append(col)
+#         self.fd={}
+#         for col in self.schema:
+#             if col=='year':
+#                 self.num.append(col)
+#             elif col!='id':
+#                 self.cat.append(col)
                 
-            '''
-            try:
-                float(self.schema[col])
-                self.num.append(col)
-            except:
-                self.cat.append(col)
-                '''
+            
+        try:
+            float(self.schema[col])
+            self.num.append(col)
+        except:
+            self.cat.append(col)
+                
     
     def findPattern(self):
 #        self.pc=PC.PatternCollection(list(self.schema))
         self.createTable()
+        start=time()
         
         for a in self.schema:
-            if a in self.cat:
-                aggList=["count"]
-            else:
+            if a in self.num:
                 aggList=["count","sum"]
+            else:
+                aggList=["count"]
             for agg in aggList:                
-                col_all=[col for col in self.schema if col!=a]
+                col_all=[col for col in self.cat+self.num if col!=a]
                 if len(col_all)>4:
                     col_4=combinations(col_all,4)
                 else:
@@ -76,7 +79,9 @@ class PatternFinder:
                                         l=1
                                     self.fitmodel(d,f,v,a,agg,l)
                     self.dropCube()
-    
+        
+        end=time()
+        self.conn.execute('INSERT INTO time(time) values('+str(end-start)+');')
     def formCube(self, a, agg,attr):
         group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a and num in attr]+
                         [cat for cat in self.cat if cat!=a and cat in attr])
@@ -209,4 +214,8 @@ class PatternFinder:
                      'theta float,'+
                      'lambda float);')
         self.conn.execute('DELETE FROM '+self.table+'_global')
+        
+        self.conn.execute('create table IF NOT EXISTS time('+
+                          'time varchar,'+
+                          'description varchar);')
         

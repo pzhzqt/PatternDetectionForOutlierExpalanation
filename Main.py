@@ -4,11 +4,12 @@ from PatternFinder import PatternFinder
 
 def main():
     #pc=PC()
-    config=input("Connection config (host dbname username password):\n").split()    
+    #config=input("Connection config (host port dbname username password):\n").split()
+    config=['216.47.152.61','5432','postgres','antiprov','test']
     try:
         engine = sa.create_engine(
-                'postgresql://'+config[2]+':'+config[3]+'@'
-                +config[0]+':5432/'+config[1],
+                'postgresql://'+config[3]+':'+config[4]+'@'
+                +config[0]+':'+config[1]+'/'+config[2],
                 echo=True)
     except Exception as ex:
         print(ex)
@@ -16,7 +17,6 @@ def main():
     
     p=PatternFinder(engine.connect())
     p.findPattern()
-    
     engine.dispose()
         
 if __name__=="__main__":
