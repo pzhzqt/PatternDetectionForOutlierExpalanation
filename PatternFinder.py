@@ -34,18 +34,18 @@ class PatternFinder:
         self.cat=[]
         self.num=[]
 #         self.fd={}
-#         for col in self.schema:
+        for col in self.schema:
 #             if col=='year':
 #                 self.num.append(col)
 #             elif col!='id':
 #                 self.cat.append(col)
                 
             
-        try:
-            float(self.schema[col])
-            self.num.append(col)
-        except:
-            self.cat.append(col)
+            try:
+                float(self.schema[col])
+                self.num.append(col)
+            except:
+                self.cat.append(col)
                 
     
     def findPattern(self):
