@@ -68,7 +68,7 @@ class PatternFinder:
                     self.formCube(a,agg,cols)
                     for i in range(min(len(cols),4),0,-1):
                         for g in combinations(cols,i):
-                            d=pd.read_sql(self.aggQuery(g,cols),con=self.conn)
+                            #d=pd.read_sql(self.aggQuery(g,cols),con=self.conn)
                             for j in range(len(g)-1,0,-1):
                             #q: Do we allow f to be empty set?
                                 for v in combinations(g,j):
@@ -77,12 +77,12 @@ class PatternFinder:
                                     l=0 #l indicates if we fit linear model
                                     if all([x in self.num for x in v]):
                                         l=1
-                                    self.fitmodel(d,f,v,a,agg,l)
+                                    self.fitmodel(cols,f,v,a,agg,l)
                     self.dropCube()
         
         end=time()
         self.conn.execute('INSERT INTO time(time) values('+str(end-start)+');')
-    def formCube(self, a, agg,attr):
+    def formCube(self, a, agg, attr):
         group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a and num in attr]+
                         [cat for cat in self.cat if cat!=a and cat in attr])
         grouping=",".join(["CAST("+num+" AS NUMERIC), GROUPING(CAST("+num+" AS NUMERIC)) as g_"+num
@@ -98,7 +98,7 @@ class PatternFinder:
     def dropCube(self):
         self.conn.execute("DROP TABLE cube;")
         
-    def aggQuery(self, g, cols):
+    def aggQuery(self, g, cols, f):
         #=======================================================================
         # res=" and ".join([a+".notna()" for a in g])
         # if len(g)<len(cols):
@@ -109,10 +109,11 @@ class PatternFinder:
         if len(g)<len(cols):
             unused=" and ".join(["g_"+b+"=1" for b in cols if b not in g])
             res=res+" and "+unused
-        return "SELECT * FROM cube where "+res+";"
+        return "SELECT * FROM cube where "+res+" ORDER BY "+",".join(f)
     
-    def fitmodel(self,d,f,v,a,agg,l=0):
-        fd=d.sort_values(by=f).reset_index(drop=True)
+    def fitmodel(self,cols,f,v,a,agg,l=0):
+        #fd=d.sort_values(by=f).reset_index(drop=True)
+        fd=pd.read_sql(self.aggQuery(f+v,cols,f),con=self.conn)
         oldKey=None
         oldIndex=0
         num_f=0
