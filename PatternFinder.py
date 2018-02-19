@@ -111,7 +111,7 @@ class PatternFinder:
         #    res=res+" and "+unused
         group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a and num in g]+
                         [cat for cat in self.cat if cat!=a and cat in g])
-        return "SELECT "+group+","+agg+"("+a+")"+" FROM "+self.table+"GROUP BY"+group+" ORDER BY "+",".join(f)
+        return "SELECT "+group+","+agg+"("+a+")"+" FROM "+self.table+" GROUP BY "+group+" ORDER BY "+",".join(f)
     
     def fitmodel(self,cols,f,v,a,agg,l=0):
         #fd=d.sort_values(by=f).reset_index(drop=True)
