@@ -65,7 +65,7 @@ class PatternFinder:
                 else:
                     col_4=[col_all]
                 for cols in col_4:
-                    self.formCube(a,agg,cols)
+                    #self.formCube(a,agg,cols)
                     for i in range(min(len(cols),4),0,-1):
                         for g in combinations(cols,i):
                             #d=pd.read_sql(self.aggQuery(g,cols),con=self.conn)
@@ -98,22 +98,24 @@ class PatternFinder:
     def dropCube(self):
         self.conn.execute("DROP TABLE cube;")
         
-    def aggQuery(self, g, cols, f):
+    def aggQuery(self, g, a, agg, f):
         #=======================================================================
         # res=" and ".join([a+".notna()" for a in g])
         # if len(g)<len(cols):
         #     null=" and ".join([b+".isna()" for b in cols if b not in g])
         #     res=res+" and "+null
         #=======================================================================
-        res=" and ".join(["g_"+a+"=0" for a in g])
-        if len(g)<len(cols):
-            unused=" and ".join(["g_"+b+"=1" for b in cols if b not in g])
-            res=res+" and "+unused
-        return "SELECT * FROM cube where "+res+" ORDER BY "+",".join(f)
+        #res=" and ".join(["g_"+a+"=0" for a in g])
+        #if len(g)<len(cols):
+        #    unused=" and ".join(["g_"+b+"=1" for b in cols if b not in g])
+        #    res=res+" and "+unused
+        group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a and num in g]+
+                        [cat for cat in self.cat if cat!=a and cat in g])
+        return "SELECT "+group+","+agg+"("+a+")"+" FROM "+self.table+"GROUP BY"+group+" ORDER BY "+",".join(f)
     
     def fitmodel(self,cols,f,v,a,agg,l=0):
         #fd=d.sort_values(by=f).reset_index(drop=True)
-        fd=pd.read_sql(self.aggQuery(f+v,cols,f),con=self.conn)
+        fd=pd.read_sql(self.aggQuery(f+v,a,agg,f),con=self.conn)
         oldKey=None
         oldIndex=0
         num_f=0
