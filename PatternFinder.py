@@ -78,7 +78,7 @@ class PatternFinder:
                                     if all([x in self.num for x in v]):
                                         l=1
                                     self.fitmodel(cols,f,v,a,agg,l)
-                    self.dropCube()
+                    #self.dropCube()
         
         end=time()
         self.conn.execute('INSERT INTO time(time) values('+str(end-start)+');')
@@ -122,9 +122,10 @@ class PatternFinder:
         valid_l_f=0
         valid_c_f=0
         
-        for index,row in fd.iterrows():
-            thisKey=list(row[f])
-            if oldKey and oldKey!=thisKey:
+        for tup in fd.itertuples():
+            thisKey=tup
+            if oldKey and any(map(lambda attr:getattr(thisKey,attr)!=getattr(oldKey,attr),f)):
+                index=tup.Index
                 temp=fd[oldIndex:index]
                 num_f+=1
                 if len(temp[agg])>=10:
@@ -148,7 +149,7 @@ class PatternFinder:
                 oldIndex=index
             oldKey=thisKey
             
-        if oldKey is not None:
+        if oldKey:
             temp=fd[oldIndex:]
             num_f+=1
             if len(temp[agg])>=10:
