@@ -1,6 +1,7 @@
 import pandas as pd
 from itertools import combinations
 import statsmodels.formula.api as sm
+from sklearn.linear_model import LinearRegression
 from scipy.stats import chisquare,mode
 from numpy import percentile,mean
 from time import time
@@ -128,12 +129,19 @@ class PatternFinder:
                 index=tup.Index
                 temp=fd[oldIndex:index]
                 num_f+=1
-                if len(temp[agg])>=10:
+                n=len(temp[agg])
+                if n>=10:
                     describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25)
                                       ,percentile(temp[agg],50),percentile(temp[agg],75)]
                     if l==1: #fitting linear
-                        lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
-                        theta_l=lr.rsquared_adj
+                        #=======================================================
+                        # lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
+                        # theta_l=lr.rsquared_adj
+                        #=======================================================
+                        lr=LinearRegression()
+                        lr.fit(temp[v],temp[agg])
+                        theta_l=lr.score(temp[v],temp[agg])
+                        theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
                         if theta_l and theta_l>self.theta_l:
                             valid_l_f+=1
                         #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
@@ -152,13 +160,20 @@ class PatternFinder:
         if oldKey:
             temp=fd[oldIndex:]
             num_f+=1
-            if len(temp[agg])>=10:
+            n=len(temp[agg])
+            if n>=10:
                 describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25,interpolation='nearest')
                                       ,percentile(temp[agg],50,interpolation='nearest'),
                                       percentile(temp[agg],75,interpolation='nearest')]
                 if l==1:
-                    lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
-                    theta_l=lr.rsquared_adj
+                    #===========================================================
+                    # lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
+                    # theta_l=lr.rsquared_adj
+                    #===========================================================
+                    lr=LinearRegression()
+                    lr.fit(temp[v],temp[agg])
+                    theta_l=lr.score(temp[v],temp[agg])
+                    theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
                     if theta_l>self.theta_l:
                         valid_l_f+=1
                         #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
