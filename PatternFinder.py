@@ -130,7 +130,7 @@ class PatternFinder:
                 temp=fd[oldIndex:index]
                 num_f+=1
                 n=len(temp[agg])
-                if n>=10:
+                if n>len(v)+1:
                     describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25)
                                       ,percentile(temp[agg],50),percentile(temp[agg],75)]
                     if l==1: #fitting linear
@@ -161,7 +161,7 @@ class PatternFinder:
             temp=fd[oldIndex:]
             num_f+=1
             n=len(temp[agg])
-            if n>=10:
+            if n>len(v)+1:
                 describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25,interpolation='nearest')
                                       ,percentile(temp[agg],50,interpolation='nearest'),
                                       percentile(temp[agg],75,interpolation='nearest')]
