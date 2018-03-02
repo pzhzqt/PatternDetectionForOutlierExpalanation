@@ -142,7 +142,8 @@ class PatternFinder:
                         lr.fit(temp[v],temp[agg])
                         theta_l=lr.score(temp[v],temp[agg])
                         theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
-                        param=lr.coef_.tolist()+lr.intercept_.tolist()
+                        param=lr.coef_.tolist()
+                        param.append(lr.intercept_.tolist())
                         if theta_l and theta_l>self.theta_l:
                             valid_l_f+=1
                         #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
@@ -175,7 +176,8 @@ class PatternFinder:
                     lr.fit(temp[v],temp[agg])
                     theta_l=lr.score(temp[v],temp[agg])
                     theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
-                    param=lr.coef_.tolist()+lr.intercept_.tolist()
+                    param=lr.coef_.tolist()
+                    param.append(lr.intercept_.tolist())
                     if theta_l>self.theta_l:
                         valid_l_f+=1
                         #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
