@@ -162,7 +162,7 @@ class PatternFinder:
             temp=fd[oldIndex:]
             num_f+=1
             n=len(temp[agg])
-            if n>=len(v)+1:
+            if n>len(v)+1:
                 describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25,interpolation='nearest')
                                       ,percentile(temp[agg],50,interpolation='nearest'),
                                       percentile(temp[agg],75,interpolation='nearest')]
@@ -227,8 +227,7 @@ class PatternFinder:
                      'model varchar,'+
                      'theta float,'+
                      'stats varchar,'+
-                     'coef varchar);'+
-                     'intercept varchar')
+                     'param varchar);')
         self.conn.execute('DELETE FROM '+self.table+'_local;')
         
         self.conn.execute('create table IF NOT EXISTS '+self.table+'_global('+
