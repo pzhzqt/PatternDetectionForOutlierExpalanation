@@ -124,8 +124,8 @@ class PatternFinder:
         valid_c_f=0
         
         for tup in fd.itertuples():
-            thisKey=tup
-            if oldKey and any(map(lambda attr:getattr(thisKey,attr)!=getattr(oldKey,attr),f)):
+            thisKey=[getattr(tup,attr) for attr in f]
+            if oldKey and thisKey!=oldKey:
                 index=tup.Index
                 temp=fd[oldIndex:index]
                 num_f+=1
