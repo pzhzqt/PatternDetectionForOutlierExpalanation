@@ -91,6 +91,7 @@ for comb in combs:
         if not d_index:
             pre=prefix.search(perm)
             add_rollup(perm_group,perm,pre)
+            prefix.add(perm[:3])
         else:
             pre=prefix.search(perm[:d_index])
             if pre==d_index:
@@ -98,6 +99,7 @@ for comb in combs:
             else:
                 if check_format(perm[:d_index],n):
                     add_rollup(perm_group,perm,pre,d_index)
+                    prefix.add(perm[:d_index])
         
 ##    decrease=0
 ##    for i in range(1,len(group)):

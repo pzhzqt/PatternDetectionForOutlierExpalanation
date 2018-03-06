@@ -31,11 +31,10 @@ class SetTrie(object):
         cur=self.root
         for i in attr:
             if i not in cur.child:
-                break
+                return None, None
             cur=cur.child[i]
         else:
             return cur.l, cur.g
-        return None, None
 
     def search_subset(self, attr):
         loc = []
