@@ -120,6 +120,13 @@ class PatternFinder:
     
     
     def fitmodel(self,f,v,a,agg,l=0): 
+        #fd=d.sort_values(by=f).reset_index(drop=True)
+        fd=pd.read_sql(self.aggQuery(f+v,a,agg,f),con=self.conn)
+        oldKey=None
+        oldIndex=0
+        num_f=0
+        valid_l_f=0
+        valid_c_f=0
         #df:dataframe n:length    
         def fit(df,n):
             describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25)
@@ -128,6 +135,7 @@ class PatternFinder:
             #fitting constant
             theta_c=chisquare(temp[agg])[1]
             if theta_c>self.theta_c:
+                nonlocal valid_c_f
                 valid_c_f+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
                 self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe,describe[0]))
@@ -145,17 +153,10 @@ class PatternFinder:
                 param=lr.coef_.tolist()
                 param.append(lr.intercept_.tolist())
                 if theta_l and theta_l>self.theta_l:
+                    nonlocal valid_l_f
                     valid_l_f+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
                     self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe,param))
-                                                  
-        #fd=d.sort_values(by=f).reset_index(drop=True)
-        fd=pd.read_sql(self.aggQuery(f+v,a,agg,f),con=self.conn)
-        oldKey=None
-        oldIndex=0
-        num_f=0
-        valid_l_f=0
-        valid_c_f=0
         
         for tup in fd.itertuples():
             thisKey=[getattr(tup,attr) for attr in f]
