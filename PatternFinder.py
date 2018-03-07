@@ -40,8 +40,8 @@ class PatternFinder:
 #                 self.num.append(col)
 #             elif col!='id':
 #                 self.cat.append(col)
-                
-            
+            if col=='id':
+                continue
             try:
                 float(self.schema[col])
                 self.num.append(col)
@@ -50,7 +50,7 @@ class PatternFinder:
                 
     
     def findPattern(self):
-#        self.pc=PC.PatternCollection(list(self.schema))
+#       self.pc=PC.PatternCollection(list(self.schema))
         self.createTable()
         start=time()
         
@@ -78,11 +78,13 @@ class PatternFinder:
                                     l=0 #l indicates if we fit linear model
                                     if all([x in self.num for x in v]):
                                         l=1
-                                    self.fitmodel(cols,f,v,a,agg,l)
+                                    self.fitmodel(f,v,a,agg,l)
                     #self.dropCube()
         
         end=time()
         self.conn.execute('INSERT INTO time(time) values('+str(end-start)+');')
+        
+        
     def formCube(self, a, agg, attr):
         group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a and num in attr]+
                         [cat for cat in self.cat if cat!=a and cat in attr])
@@ -95,9 +97,11 @@ class PatternFinder:
         self.conn.execute(query)
         indx=",".join(["g_"+col for col in attr])
         self.conn.execute("CREATE INDEX in_a on cube("+indx+");")
+        
     
     def dropCube(self):
         self.conn.execute("DROP TABLE cube;")
+        
         
     def aggQuery(self, g, a, agg, f):
         #=======================================================================
@@ -114,7 +118,8 @@ class PatternFinder:
                         [cat for cat in self.cat if cat!=a and cat in g])
         return "SELECT "+group+","+agg+"("+a+")"+" FROM "+self.table+" GROUP BY "+group+" ORDER BY "+",".join(f)
     
-    def fitmodel(self,cols,f,v,a,agg,l=0):
+    
+    def fitmodel(self,f,v,a,agg,l=0):                               
         #fd=d.sort_values(by=f).reset_index(drop=True)
         fd=pd.read_sql(self.aggQuery(f+v,a,agg,f),con=self.conn)
         oldKey=None
@@ -131,30 +136,7 @@ class PatternFinder:
                 num_f+=1
                 n=len(temp[agg])
                 if n>len(v)+1:
-                    describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25)
-                                      ,percentile(temp[agg],50),percentile(temp[agg],75)]
-                    if l==1: #fitting linear
-                        #=======================================================
-                        # lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
-                        # theta_l=lr.rsquared_adj
-                        #=======================================================
-                        lr=LinearRegression()
-                        lr.fit(temp[v],temp[agg])
-                        theta_l=lr.score(temp[v],temp[agg])
-                        theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
-                        param=lr.coef_.tolist()
-                        param.append(lr.intercept_.tolist())
-                        if theta_l and theta_l>self.theta_l:
-                            valid_l_f+=1
-                        #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                            self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe,param))
-                            
-                    #fitting constant
-                    theta_c=chisquare(temp[agg])[1]
-                    if theta_c>self.theta_c:
-                        valid_c_f+=1
-                        #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                        self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe,describe[0]))
+                    fit(temp,n)
                         
                 oldIndex=index
             oldKey=thisKey
@@ -164,29 +146,7 @@ class PatternFinder:
             num_f+=1
             n=len(temp[agg])
             if n>len(v)+1:
-                describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25,interpolation='nearest')
-                                      ,percentile(temp[agg],50,interpolation='nearest'),
-                                      percentile(temp[agg],75,interpolation='nearest')]
-                if l==1:
-                    #===========================================================
-                    # lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
-                    # theta_l=lr.rsquared_adj
-                    #===========================================================
-                    lr=LinearRegression()
-                    lr.fit(temp[v],temp[agg])
-                    theta_l=lr.score(temp[v],temp[agg])
-                    theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
-                    param=lr.coef_.tolist()
-                    param.append(lr.intercept_.tolist())
-                    if theta_l>self.theta_l:
-                        valid_l_f+=1
-                        #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                        self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe,param))
-                theta_c=chisquare(temp[agg])[1]
-                if theta_c>self.theta_c:
-                    valid_c_f+=1
-                    #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe,describe[0]))
+                fit(temp,n)
         
         lamb_c=valid_c_f/num_f
         lamb_l=valid_l_f/num_f
@@ -196,7 +156,37 @@ class PatternFinder:
         if lamb_l>self.lamb:
             #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
             self.conn.execute(self.addGlobal(f,v,a,agg,'linear',self.theta_l,lamb_l))
-            
+        
+        #df:dataframe n:length    
+        def fit(df,n):
+            describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25)
+                                          ,percentile(temp[agg],50),percentile(temp[agg],75)]
+                                
+            #fitting constant
+            theta_c=chisquare(temp[agg])[1]
+            if theta_c>self.theta_c:
+                valid_c_f+=1
+                #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe,describe[0]))
+                
+            #fitting linear
+            if l==1 and theta_c!=1:
+                #=======================================================
+                # lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
+                # theta_l=lr.rsquared_adj
+                #=======================================================
+                lr=LinearRegression()
+                lr.fit(temp[v],temp[agg])
+                theta_l=lr.score(temp[v],temp[agg])
+                theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
+                param=lr.coef_.tolist()
+                param.append(lr.intercept_.tolist())
+                if theta_l and theta_l>self.theta_l:
+                    valid_l_f+=1
+                #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe,param))
+                    
+                          
     def addLocal(self,f,f_val,v,a,agg,model,theta,describe,param):
         f="'"+str(f).replace("'","")+"'"
         f_val="'"+str(f_val).replace("'","")+"'"
@@ -209,6 +199,7 @@ class PatternFinder:
         param="'"+str(param)+"'"
         return 'insert into '+self.table+'_local values('+','.join([f,f_val,v,a,agg,model,theta,describe,param])+');'
     
+    
     def addGlobal(self,f,v,a,agg,model,theta,lamb):
         f="'"+str(f).replace("'","")+"'"
         v="'"+str(v).replace("'","")+"'"
@@ -218,6 +209,7 @@ class PatternFinder:
         theta="'"+str(theta)+"'"
         lamb="'"+str(lamb)+"'"
         return 'insert into '+self.table+'_global values('+','.join([f,v,a,agg,model,theta,lamb])+');'
+    
     
     def createTable(self):
         self.conn.execute('create table IF NOT EXISTS '+self.table+'_local('+
