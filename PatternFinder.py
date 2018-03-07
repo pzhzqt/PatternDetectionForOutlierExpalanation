@@ -119,7 +119,36 @@ class PatternFinder:
         return "SELECT "+group+","+agg+"("+a+")"+" FROM "+self.table+" GROUP BY "+group+" ORDER BY "+",".join(f)
     
     
-    def fitmodel(self,f,v,a,agg,l=0):                               
+    def fitmodel(self,f,v,a,agg,l=0): 
+        #df:dataframe n:length    
+        def fit(df,n):
+            describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25)
+                                          ,percentile(temp[agg],50),percentile(temp[agg],75)]
+                                
+            #fitting constant
+            theta_c=chisquare(temp[agg])[1]
+            if theta_c>self.theta_c:
+                valid_c_f+=1
+                #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe,describe[0]))
+                
+            #fitting linear
+            if l==1 and theta_c!=1:
+                #=======================================================
+                # lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
+                # theta_l=lr.rsquared_adj
+                #=======================================================
+                lr=LinearRegression()
+                lr.fit(temp[v],temp[agg])
+                theta_l=lr.score(temp[v],temp[agg])
+                theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
+                param=lr.coef_.tolist()
+                param.append(lr.intercept_.tolist())
+                if theta_l and theta_l>self.theta_l:
+                    valid_l_f+=1
+                #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe,param))
+                                                  
         #fd=d.sort_values(by=f).reset_index(drop=True)
         fd=pd.read_sql(self.aggQuery(f+v,a,agg,f),con=self.conn)
         oldKey=None
@@ -157,34 +186,7 @@ class PatternFinder:
             #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
             self.conn.execute(self.addGlobal(f,v,a,agg,'linear',self.theta_l,lamb_l))
         
-        #df:dataframe n:length    
-        def fit(df,n):
-            describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25)
-                                          ,percentile(temp[agg],50),percentile(temp[agg],75)]
-                                
-            #fitting constant
-            theta_c=chisquare(temp[agg])[1]
-            if theta_c>self.theta_c:
-                valid_c_f+=1
-                #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe,describe[0]))
-                
-            #fitting linear
-            if l==1 and theta_c!=1:
-                #=======================================================
-                # lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
-                # theta_l=lr.rsquared_adj
-                #=======================================================
-                lr=LinearRegression()
-                lr.fit(temp[v],temp[agg])
-                theta_l=lr.score(temp[v],temp[agg])
-                theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
-                param=lr.coef_.tolist()
-                param.append(lr.intercept_.tolist())
-                if theta_l and theta_l>self.theta_l:
-                    valid_l_f+=1
-                #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe,param))
+        
                     
                           
     def addLocal(self,f,f_val,v,a,agg,model,theta,describe,param):
