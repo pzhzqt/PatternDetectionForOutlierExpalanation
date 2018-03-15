@@ -96,7 +96,7 @@ class PatternFinder:
                                     division=None
                                 condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
                                                         for k in range(d_index)])                              
-                                fd=pd.read_sql('SELECT '+','.join(prefix)+' FROM grouping where '+condition
+                                fd=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping where '+condition
                                                ,con=self.conn)
                                 self.fitmodel(fd,prefix,a,agg,division)
                             self.dropRollup()
@@ -133,10 +133,7 @@ class PatternFinder:
         self.conn.execute(query)
     
     def rollupQuery(self, group, pre, d_index, agg):
-        grouping=",".join(["CAST("+num+" AS NUMERIC), GROUPING(CAST("+num+" AS NUMERIC)) as g_"+num
-                        for num in group[:d_index] if num in self.num]+
-            [cat+", GROUPING("+cat+") as g_"+cat for cat in group[:d_index] if cat in self.cat])
-        
+        grouping=",".join([attr+", GROUPING("+attr+") as g_"+attr for attr in group[:d_index]])
         gsets=','.join(['('+','.join(group[:prefix])+')' for prefix in range(d_index,pre,-1)])
         self.conn.execute('CREATE TEMP TABLE grouping AS '+
                         'SELECT '+grouping+', SUM('+agg+') as '+agg+
@@ -161,12 +158,12 @@ class PatternFinder:
         num_f=[0]*size
         valid_l_f=[0]*size
         valid_c_f=[0]*size
-        f=[group[:i] for i in range(1,size)]
-        v=[group[j:] for j in range(1,size)]
+        f=[list(group[:i]) for i in range(1,size+1)]
+        v=[list(group[j:]) for j in range(1,size+1)]
         
         def fit(df,i,n):
             describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
-                                          ,percentile(df[agg],50),percentile(df[agg],75)]
+                      ,percentile(df[agg],50),percentile(df[agg],75)]
             
             fval=[getattr(oldKey,group[j]) for j in range(i)]                    
             #fitting constant
@@ -196,8 +193,8 @@ class PatternFinder:
                     self.conn.execute(self.addLocal(f[i],fval,v[i],a,agg,'linear',theta_l,describe,param))
         
         for tup in fd.itertuples():
+            position=None
             if oldKey:
-                position=None
                 for i in range(size):
                     if getattr(tup,group[i])!=getattr(oldKey,group[i]):
                         position=i
@@ -208,7 +205,7 @@ class PatternFinder:
                 for i in range(position,size):
                     temp=fd[oldIndex[i]:index]
                     num_f[i]+=1
-                    n=len(temp[agg])
+                    n=index-oldIndex[i]
                     if n>len(v[i])+1:
                         fit(temp,i,n)
                     oldIndex[i]=index
@@ -219,7 +216,7 @@ class PatternFinder:
             for i in range(size):
                 temp=fd[oldIndex[i]:]
                 num_f[i]+=1
-                n=len(temp[agg])
+                n=len(temp)
                 if n>len(v[i])+1:
                     fit(temp,i,n)
         
@@ -262,8 +259,8 @@ class PatternFinder:
         num_f=0
         valid_l_f=0
         valid_c_f=0
-        f=group[:division]
-        v=group[division:]
+        f=list(group[:division])
+        v=list(group[division:])
         l=0
         if all([attr in self.num for attr in v]):
             l=1
@@ -304,7 +301,7 @@ class PatternFinder:
                 index=tup.Index
                 temp=fd[oldIndex:index]
                 num_f+=1
-                n=len(temp[agg])
+                n=index-oldIndex
                 if n>len(v)+1:
                     fit(temp,f,v,n)                       
                 oldIndex=index
@@ -313,7 +310,7 @@ class PatternFinder:
         if oldKey:
             temp=fd[oldIndex:]
             num_f+=1
-            n=len(temp[agg])
+            n=len(temp)
             if n>len(v)+1:
                 fit(temp,f,v,n)
         
