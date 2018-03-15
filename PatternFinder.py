@@ -243,8 +243,10 @@ class PatternFinder:
         #fitting linear
         if  theta_c!=1 and all(attr in self.num for attr in group):
             lr=LinearRegression()
-            lr.fit(fd[group],fd[agg])
-            theta_l=lr.score(fd[group],fd[agg])
+            gl=list(group)
+            lr.fit(fd[gl],fd[agg])
+            theta_l=lr.score(fd[gl],fd[agg])
+            n=len(fd)
             theta_l=1-(1-theta_l)*(n-1)/(n-len(group)-1)
             param=lr.coef_.tolist()
             param.append(lr.intercept_.tolist())
