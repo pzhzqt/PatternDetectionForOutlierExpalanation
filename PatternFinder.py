@@ -5,7 +5,7 @@ from sklearn.linear_model import LinearRegression
 from scipy.stats import chisquare,mode
 from numpy import percentile,mean
 from time import time
-import PatternCollection as PC
+from permtest import *
 
 class PatternFinder:
     conn=None
@@ -43,7 +43,7 @@ class PatternFinder:
             if col=='id':
                 continue
             try:
-                float(self.schema[col])
+                self.conn.execute("SELECT CAST("+col+" AS NUMERIC) FROM "+self.table)
                 self.num.append(col)
             except:
                 self.cat.append(col)
@@ -59,27 +59,48 @@ class PatternFinder:
                 aggList=["count","sum"]
             else:
                 aggList=["count"]
-            for agg in aggList:                
-                col_all=[col for col in self.cat+self.num if col!=a]
-                if len(col_all)>4:
-                    col_4=combinations(col_all,4)
-                else:
-                    col_4=[col_all]
-                for cols in col_4:
-                    #self.formCube(a,agg,cols)
-                    for i in range(min(len(cols),4),0,-1):
-                        for g in combinations(cols,i):
-                            #d=pd.read_sql(self.aggQuery(g,cols),con=self.conn)
-                            for j in range(len(g)-1,0,-1):
-                            #q: Do we allow f to be empty set?
-                                for v in combinations(g,j):
-                                    v=list(v)
-                                    f=[k for k in g if k not in v]
-                                    l=0 #l indicates if we fit linear model
-                                    if all([x in self.num for x in v]):
-                                        l=1
-                                    self.fitmodel(f,v,a,agg,l)
-                    #self.dropCube()
+            for agg in aggList:
+                cols=[col for col in self.cat+self.num if col!=a]
+                n=len(cols)
+                combs=combinations([i for i in range(n)],min(4,n))
+                for comb in combs:
+                    grouping=[cols[i] for i in comb]
+                    self.aggQuery(grouping,a,agg)
+                    perms=permutations(comb,len(comb))
+                    for perm in perms:
+                        decrease=0
+                        d_index=None
+                        division=None
+                        for i in range(1,len(perm)):
+                            if perm[i-1]>perm[i]:
+                                decrease+=1
+                            if decrease==1:
+                                division=i #f=group[:divition],v=group[division:] is the only division
+                            if decrease==2:
+                                d_index=i #perm[:d_index] will decrease at most once
+            
+                        if not d_index:
+                            d_index=len(perm)
+                            pre=findpre(perm,d_index-1,n)#perm[:pre] are taken care of by other grouping
+                        else:
+                            pre=findpre(perm,d_index,n)
+                            
+                        if pre==d_index:
+                            continue
+                        else:
+                            group=tuple([cols[i] for i in perm])
+                            self.rollupQuery(group, pre, d_index, agg)
+                            for i in range(d_index,pre,-1):
+                                prefix=group[:i]
+                                if division and division>=i:
+                                    division=None
+                                condition=' and '.join(['g_'+group[j]+'=0' if j<i else 'g_'+group[j]+'=1'
+                                                        for j in range(d_index)])                              
+                                fd=pd.read_sql('SELECT '+','.join(prefix)+' FROM grouping where '+condition
+                                               ,con=self.conn)
+                                self.fitmodel(fd,prefix,a,agg,division)
+                            self.dropRollup()
+                    self.dropAgg()    
         
         end=time()
         self.conn.execute('INSERT INTO time(time) values('+str(end-start)+');')
@@ -103,37 +124,156 @@ class PatternFinder:
         self.conn.execute("DROP TABLE cube;")
         
         
-    def aggQuery(self, g, a, agg, f):
-        #=======================================================================
-        # res=" and ".join([a+".notna()" for a in g])
-        # if len(g)<len(cols):
-        #     null=" and ".join([b+".isna()" for b in cols if b not in g])
-        #     res=res+" and "+null
-        #=======================================================================
-        #res=" and ".join(["g_"+a+"=0" for a in g])
-        #if len(g)<len(cols):
-        #    unused=" and ".join(["g_"+b+"=1" for b in cols if b not in g])
-        #    res=res+" and "+unused
+    def aggQuery(self, g, a, agg):
         group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a and num in g]+
                         [cat for cat in self.cat if cat!=a and cat in g])
-        return "SELECT "+group+","+agg+"("+a+")"+" FROM "+self.table+" GROUP BY "+group+" ORDER BY "+",".join(f)
+        if agg=='sum':
+            a='CAST('+a+' AS NUMERIC)'
+        query="CREATE TEMP TABLE agg as SELECT "+group+","+agg+"("+a+")"+" FROM "+self.table+" GROUP BY "+group
+        self.conn.execute(query)
     
-    
-    def fitmodel(self,f,v,a,agg,l=0): 
+    def rollupQuery(self, group, pre, d_index, agg):
+        grouping=",".join(["CAST("+num+" AS NUMERIC), GROUPING(CAST("+num+" AS NUMERIC)) as g_"+num
+                        for num in group[:d_index] if num in self.num]+
+            [cat+", GROUPING("+cat+") as g_"+cat for cat in group[:d_index] if cat in self.cat])
+        
+        gsets=','.join(['('+','.join(group[:prefix])+')' for prefix in range(d_index,pre,-1)])
+        self.conn.execute('CREATE TEMP TABLE grouping AS '+
+                        'SELECT '+grouping+', SUM('+agg+') as '+agg+
+                        ' FROM agg GROUP BY GROUPING SETS('+gsets+')')
+        
+    def dropRollup(self):
+        self.conn.execute('DROP TABLE grouping')
+        
+    def dropAgg(self):
+        self.conn.execute('DROP TABLE agg')
+        
+    def fitmodel(self, fd, group, a, agg, division):  
+        if division:
+            self.fitmodel_with_division
+        else:
+            self.fitmodel_no_division
+            
+    def fitmodel_no_division(self, fd, group, a, agg):
+        size=len(group)-1
+        oldKey=None
+        oldIndex=[0]*size
+        num_f=[0]*size
+        valid_l_f=[0]*size
+        valid_c_f=[0]*size
+        f=[group[:i] for i in range(1,size)]
+        v=[group[j:] for j in range(1,size)]
+        
+        def fit(df,i,n):
+            describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
+                                          ,percentile(df[agg],50),percentile(df[agg],75)]
+            
+            fval=[getattr(oldKey,group[j]) for j in range(i)]                    
+            #fitting constant
+            theta_c=chisquare(df[agg])[1]
+            if theta_c>self.theta_c:
+                nonlocal valid_c_f
+                valid_c_f[i]+=1
+                #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                self.conn.execute(self.addLocal(f[i],fval,v[i],a,agg,'const',theta_c,describe,describe[0]))
+              
+            #fitting linear
+            if  theta_c!=1 and all(attr in self.num for attr in v[i]):
+                #=======================================================
+                # lr=sm.ols(agg+'~'+'+'.join(v),data=df).fit()
+                # theta_l=lr.rsquared_adj
+                #=======================================================
+                lr=LinearRegression()
+                lr.fit(df[v[i]],df[agg])
+                theta_l=lr.score(df[v[i]],df[agg])
+                theta_l=1-(1-theta_l)*(n-1)/(n-len(v[i])-1)
+                param=lr.coef_.tolist()
+                param.append(lr.intercept_.tolist())
+                if theta_l and theta_l>self.theta_l:
+                    nonlocal valid_l_f
+                    valid_l_f[i]+=1
+                #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                    self.conn.execute(self.addLocal(f[i],fval,v[i],a,agg,'linear',theta_l,describe,param))
+        
+        for tup in fd.itertuples():
+            if oldKey:
+                position=None
+                for i in range(size):
+                    if getattr(tup,group[i])!=getattr(oldKey,group[i]):
+                        position=i
+                        break
+            
+            if position:
+                index=tup.Index
+                for i in range(position,size):
+                    temp=fd[oldIndex[i]:index]
+                    num_f[i]+=1
+                    n=len(temp[agg])
+                    if n>len(v[i])+1:
+                        fit(temp,i,n)
+                    oldIndex[i]=index
+                    
+            oldKey=tup
+            
+        if oldKey:
+            for i in range(size):
+                temp=fd[oldIndex[i]:]
+                num_f[i]+=1
+                n=len(temp[agg])
+                if n>len(v[i])+1:
+                    fit(temp,i,n)
+        
+        #sifting global            
+        for i in range(size):
+            lamb_c=valid_c_f[i]/num_f[i]
+            lamb_l=valid_l_f[i]/num_f[i]
+            if lamb_c>self.lamb:
+                #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
+                self.conn.execute(self.addGlobal(f[i],v[i],a,agg,'const',self.theta_c,lamb_c))
+            if lamb_l>self.lamb:
+                #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
+                self.conn.execute(self.addGlobal(f[i],v[i],a,agg,'linear',self.theta_l,lamb_l))
+                
+        #adding local with f=empty set
+        describe=[mean(fd[agg]),mode(fd[agg]),percentile(fd[agg],25)
+                                          ,percentile(fd[agg],50),percentile(fd[agg],75)]
+                           
+        #fitting constant
+        theta_c=chisquare(fd[agg])[1]
+        if theta_c>self.theta_c:
+            self.conn.execute(self.addLocal([' '],[' '],group,a,agg,'const',theta_c,describe,describe[0]))
+          
+        #fitting linear
+        if  theta_c!=1 and all(attr in self.num for attr in group):
+            lr=LinearRegression()
+            lr.fit(fd[group],fd[agg])
+            theta_l=lr.score(fd[group],fd[agg])
+            theta_l=1-(1-theta_l)*(n-1)/(n-len(group)-1)
+            param=lr.coef_.tolist()
+            param.append(lr.intercept_.tolist())
+            if theta_l and theta_l>self.theta_l:
+            #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                self.conn.execute(self.addLocal([' '],[' '],group,a,agg,'linear',theta_l,describe,param))
+                
+    def fitmodel_with_division(self, fd, group, a, agg, division): 
         #fd=d.sort_values(by=f).reset_index(drop=True)
-        fd=pd.read_sql(self.aggQuery(f+v,a,agg,f),con=self.conn)
         oldKey=None
         oldIndex=0
         num_f=0
         valid_l_f=0
         valid_c_f=0
+        f=group[:division]
+        v=group[division:]
+        l=0
+        if all([attr in self.num for attr in v]):
+            l=1
         #df:dataframe n:length    
-        def fit(df,n):
-            describe=[mean(temp[agg]),mode(temp[agg]),percentile(temp[agg],25)
-                                          ,percentile(temp[agg],50),percentile(temp[agg],75)]
+        def fit(df,f,v,n):
+            describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
+                                          ,percentile(df[agg],50),percentile(df[agg],75)]
                                 
             #fitting constant
-            theta_c=chisquare(temp[agg])[1]
+            theta_c=chisquare(df[agg])[1]
             if theta_c>self.theta_c:
                 nonlocal valid_c_f
                 valid_c_f+=1
@@ -143,12 +283,12 @@ class PatternFinder:
             #fitting linear
             if l==1 and theta_c!=1:
                 #=======================================================
-                # lr=sm.ols(agg+'~'+'+'.join(v),data=temp).fit()
+                # lr=sm.ols(agg+'~'+'+'.join(v),data=df).fit()
                 # theta_l=lr.rsquared_adj
                 #=======================================================
                 lr=LinearRegression()
-                lr.fit(temp[v],temp[agg])
-                theta_l=lr.score(temp[v],temp[agg])
+                lr.fit(df[v],df[agg])
+                theta_l=lr.score(df[v],df[agg])
                 theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
                 param=lr.coef_.tolist()
                 param.append(lr.intercept_.tolist())
@@ -166,8 +306,7 @@ class PatternFinder:
                 num_f+=1
                 n=len(temp[agg])
                 if n>len(v)+1:
-                    fit(temp,n)
-                        
+                    fit(temp,f,v,n)                       
                 oldIndex=index
             oldKey=thisKey
             
@@ -176,7 +315,7 @@ class PatternFinder:
             num_f+=1
             n=len(temp[agg])
             if n>len(v)+1:
-                fit(temp,n)
+                fit(temp,f,v,n)
         
         lamb_c=valid_c_f/num_f
         lamb_l=valid_l_f/num_f
@@ -186,9 +325,6 @@ class PatternFinder:
         if lamb_l>self.lamb:
             #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
             self.conn.execute(self.addGlobal(f,v,a,agg,'linear',self.theta_l,lamb_l))
-        
-        
-                    
                           
     def addLocal(self,f,f_val,v,a,agg,model,theta,describe,param):
         f="'"+str(f).replace("'","")+"'"
