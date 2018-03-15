@@ -150,9 +150,9 @@ class PatternFinder:
         
     def fitmodel(self, fd, group, a, agg, division):  
         if division:
-            self.fitmodel_with_division
+            self.fitmodel_with_division(fd, group, a, agg, division)
         else:
-            self.fitmodel_no_division
+            self.fitmodel_no_division(fd, group, a, agg)
             
     def fitmodel_no_division(self, fd, group, a, agg):
         size=len(group)-1
