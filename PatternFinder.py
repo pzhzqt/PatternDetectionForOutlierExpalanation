@@ -90,12 +90,12 @@ class PatternFinder:
                         else:
                             group=tuple([cols[i] for i in perm])
                             self.rollupQuery(group, pre, d_index, agg)
-                            for i in range(d_index,pre,-1):
-                                prefix=group[:i]
-                                if division and division>=i:
+                            for j in range(d_index,pre,-1):
+                                prefix=group[:j]
+                                if division and division>=j:
                                     division=None
-                                condition=' and '.join(['g_'+group[j]+'=0' if j<i else 'g_'+group[j]+'=1'
-                                                        for j in range(d_index)])                              
+                                condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
+                                                        for k in range(d_index)])                              
                                 fd=pd.read_sql('SELECT '+','.join(prefix)+' FROM grouping where '+condition
                                                ,con=self.conn)
                                 self.fitmodel(fd,prefix,a,agg,division)
