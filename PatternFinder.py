@@ -74,10 +74,11 @@ class PatternFinder:
                         for i in range(1,len(perm)):
                             if perm[i-1]>perm[i]:
                                 decrease+=1
-                            if decrease==1:
-                                division=i #f=group[:divition],v=group[division:] is the only division
-                            if decrease==2:
+                                if decrease==1:
+                                    division=i #f=group[:divition],v=group[division:] is the only division
+                            elif decrease==2:
                                 d_index=i #perm[:d_index] will decrease at most once
+                                break
             
                         if not d_index:
                             d_index=len(perm)
@@ -298,8 +299,7 @@ class PatternFinder:
                     self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe,param))
         
         for tup in fd.itertuples():
-            thisKey=[getattr(tup,attr) for attr in f]
-            if oldKey and thisKey!=oldKey:
+            if oldKey and [getattr(tup,attr)!=getattr(oldKey,attr) for attr in f]:
                 index=tup.Index
                 temp=fd[oldIndex:index]
                 num_f+=1
@@ -307,7 +307,7 @@ class PatternFinder:
                 if n>len(v)+1:
                     fit(temp,f,v,n)                       
                 oldIndex=index
-            oldKey=thisKey
+            oldKey=tup
             
         if oldKey:
             temp=fd[oldIndex:]

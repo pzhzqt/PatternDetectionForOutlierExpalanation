@@ -1,16 +1,20 @@
 from itertools import combinations,permutations
 
-def add_rollup(dic,group,prefix,d_index=None):
-    if d_index:
-        n=d_index
-    else:
-        n=len(group)
-    for k in range(n,prefix,-1):
-        for i in range(k):
-            key=tuple(sorted(group[:k]))
+def add_rollup(dic,group,prefix,division,d_index):
+    for k in range(d_index,prefix,-1):
+        if division and division>=k:
+                division=None
+        if not division:
+            for i in range(k):
+                key=tuple(group[:i])
+                if key not in dic:
+                    dic[key]=set()
+                dic[key].add(tuple(group[i:k]))
+        else:
+            key=tuple(group[:division])
             if key not in dic:
                 dic[key]=set()
-            dic[key].add(tuple(sorted(group[k-i-1:k])))
+            dic[key].add(group[division:k])
 
 #when there are n numbers and group, return the next available for group[-1]
 def nextnum(group,n):
@@ -29,18 +33,20 @@ def findpre(group,d_index,n):
     return 0
 
 def main():
-    n=8
+    n=3
     l=[i for i in range(n)]
     
     all_group={}
     for i in range(4,0,-1):
-    	groups=combinations(l,i)
-    	for group in groups:
-    	    all_group[group]=set()
-    	    for j in range(len(group),0,-1):
-    	        vs=combinations(group,j)
-    	        for v in vs:
-    	            all_group[group].add(v)
+        groups=combinations(l,i)
+        for group in groups:
+            for j in range(len(group),0,-1):
+                vs=combinations(group,j)
+                for v in vs:
+                    f=tuple(sorted([f for f in group if f not in v]))
+                    if f not in all_group:
+                        all_group[f]=set()
+                    all_group[f].add(v)
     
     perm_group={}
     combs=combinations(l,min(4,len(l)))
@@ -49,32 +55,36 @@ def main():
         for perm in perms:
             decrease=0
             d_index=None
+            division=None
             for i in range(1,len(perm)):
                 if perm[i-1]>perm[i]:
                     decrease+=1
+                    if decrease==1:
+                        division=i
                 if decrease==2:
                     d_index=i #perm[:d_index] will decrease at most once
                     
             if not d_index:
-                pre=findpre(perm,len(perm)-1,n)
-                add_rollup(perm_group,perm,pre)
+                d_index=len(perm)
+                pre=findpre(perm,d_index-1,n)
             else:
                 pre=findpre(perm,d_index,n)
-                if pre==d_index:
-                    continue
-                else:
-                    add_rollup(perm_group,perm,pre,d_index)
-    	    
+            
+            if pre==d_index:
+                continue
+            else:
+                add_rollup(perm_group,perm,pre,division,d_index)
+            
     dif={}
     for key in all_group:
-    	if key not in perm_group:
-    	    dif[key]=all_group[key]
-    	else:
-    	    for v in all_group[key]:
-    	        if v not in perm_group[key]:
-    	            if key not in dif:
-    	                dif[key]=set()
-    	            dif[key].add(v)
+        if key not in perm_group:
+            dif[key]=all_group[key]
+        else:
+            for v in all_group[key]:
+                if v not in perm_group[key]:
+                    if key not in dif:
+                        dif[key]=set()
+                    dif[key].add(v)
     
     print(dif)
 
