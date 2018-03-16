@@ -98,7 +98,7 @@ class PatternFinder:
                                 condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
                                                         for k in range(d_index)])                              
                                 fd=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition
-                                               +' ORDER BY '+','.join(prefix), con=self.conn)
+                                               +' ORDER BY '+','.join(prefix), con=self.conn)                                
                                 self.fitmodel(fd,prefix,a,agg,division)
                             self.dropRollup()
                     self.dropAgg()    
@@ -201,7 +201,7 @@ class PatternFinder:
                         position=i
                         break
             
-            if position:
+            if position is not None:
                 index=tup.Index
                 for i in range(position,size):
                     temp=fd[oldIndex[i]:index]
@@ -299,7 +299,7 @@ class PatternFinder:
                     self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe,param))
         
         for tup in fd.itertuples():
-            if oldKey and [getattr(tup,attr)!=getattr(oldKey,attr) for attr in f]:
+            if oldKey and any([getattr(tup,attr)!=getattr(oldKey,attr) for attr in f]):
                 index=tup.Index
                 temp=fd[oldIndex:index]
                 num_f+=1

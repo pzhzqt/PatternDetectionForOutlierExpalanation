@@ -33,7 +33,7 @@ def findpre(group,d_index,n):
     return 0
 
 def main():
-    n=3
+    n=8
     l=[i for i in range(n)]
     
     all_group={}
