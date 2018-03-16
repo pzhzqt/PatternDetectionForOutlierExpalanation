@@ -96,8 +96,8 @@ class PatternFinder:
                                     division=None
                                 condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
                                                         for k in range(d_index)])                              
-                                fd=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping where '+condition
-                                               ,con=self.conn)
+                                fd=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition
+                                               +' ORDER BY '+','.join(prefix), con=self.conn)
                                 self.fitmodel(fd,prefix,a,agg,division)
                             self.dropRollup()
                     self.dropAgg()    
@@ -165,7 +165,7 @@ class PatternFinder:
             describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
                       ,percentile(df[agg],50),percentile(df[agg],75)]
             
-            fval=[getattr(oldKey,group[j]) for j in range(i)]                    
+            fval=[getattr(oldKey,j) for j in f[i]]                    
             #fitting constant
             theta_c=chisquare(df[agg])[1]
             if theta_c>self.theta_c:
