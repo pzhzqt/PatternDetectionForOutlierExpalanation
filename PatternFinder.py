@@ -271,14 +271,15 @@ class PatternFinder:
         def fit(df,f,v,n):
             describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
                                           ,percentile(df[agg],50),percentile(df[agg],75)]
-                                
+            
+            fval=[getattr(oldKey,j) for j in f]                    
             #fitting constant
             theta_c=chisquare(df[agg])[1]
             if theta_c>self.theta_c:
                 nonlocal valid_c_f
                 valid_c_f+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'const',theta_c,describe,describe[0]))
+                self.conn.execute(self.addLocal(f,fval,v,a,agg,'const',theta_c,describe,describe[0]))
                 
             #fitting linear
             if l==1 and theta_c!=1:
@@ -296,7 +297,7 @@ class PatternFinder:
                     nonlocal valid_l_f
                     valid_l_f+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                    self.conn.execute(self.addLocal(f,oldKey,v,a,agg,'linear',theta_l,describe,param))
+                    self.conn.execute(self.addLocal(f,fval,v,a,agg,'linear',theta_l,describe,param))
         
         for tup in fd.itertuples():
             if oldKey and any([getattr(tup,attr)!=getattr(oldKey,attr) for attr in f]):
