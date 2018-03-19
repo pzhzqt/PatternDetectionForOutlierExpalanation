@@ -77,9 +77,9 @@ class PatternFinder:
                                 decrease+=1
                                 if decrease==1:
                                     division=i #f=group[:divition],v=group[division:] is the only division
-                            elif decrease==2:
-                                d_index=i #perm[:d_index] will decrease at most once
-                                break
+                                elif decrease==2:
+                                    d_index=i #perm[:d_index] will decrease at most once
+                                    break
             
                         if not d_index:
                             d_index=len(perm)

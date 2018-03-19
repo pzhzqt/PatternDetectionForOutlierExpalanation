@@ -1,6 +1,6 @@
 from itertools import combinations,permutations
 
-def add_rollup(dic,group,prefix,division,d_index):
+def add_rollup(dic,group,prefix,division,d_index,redundant):
     for k in range(d_index,prefix,-1):
         if division and division>=k:
                 division=None
@@ -9,12 +9,24 @@ def add_rollup(dic,group,prefix,division,d_index):
                 key=tuple(group[:i])
                 if key not in dic:
                     dic[key]=set()
-                dic[key].add(tuple(group[i:k]))
+                v=group[i:k]
+                if v not in dic[key]:
+                    dic[key].add(v)
+                else:
+                    if key not in redundant:
+                        redundant[key]=set()
+                    redundant[key].add(v)
         else:
             key=tuple(group[:division])
             if key not in dic:
                 dic[key]=set()
-            dic[key].add(group[division:k])
+            v=group[division:k]
+            if v not in dic[key]:
+                dic[key].add(v)
+            else:
+                if key not in redundant:
+                    redundant[key]=set()
+                redundant[key].add(v)
 
 #when there are n numbers and group, return the next available for group[-1]
 def nextnum(group,n):
@@ -49,6 +61,7 @@ def main():
                     all_group[f].add(v)
     
     perm_group={}
+    redundant={}
     combs=combinations(l,min(4,len(l)))
     for comb in combs:
         perms=permutations(comb,len(comb))
@@ -73,7 +86,7 @@ def main():
             if pre==d_index:
                 continue
             else:
-                add_rollup(perm_group,perm,pre,division,d_index)
+                add_rollup(perm_group,perm,pre,division,d_index,redundant)
             
     dif={}
     for key in all_group:
@@ -87,6 +100,7 @@ def main():
                     dif[key].add(v)
     
     print(dif)
+    print(redundant)
 
 if __name__=="__main__":
     main()
