@@ -17,20 +17,21 @@ class PatternFinder:
     num=None
     schema=None
     pc=None
+    fit=None
     
-    def __init__(self, conn, theta_c=0.75, theta_l=0.75, lamb=0.8):
+    def __init__(self, conn, table, fit=True, theta_c=0.75, theta_l=0.75, lamb=0.8):
         self.conn=conn
         self.theta_c=theta_c
         self.theta_l=theta_l
         self.lamb=lamb
+        self.fit=fit
         
-        while(True):
-            try:
-                self.table=input("Relation name: \n")
-                self.schema=pd.read_sql("SELECT * FROM "+self.table+" LIMIT 1",self.conn)
-                break
-            except Exception as ex:
-                print(ex)
+        try:
+            self.table=table
+            self.schema=pd.read_sql("SELECT * FROM "+self.table+" LIMIT 1",self.conn)
+            break
+        except Exception as ex:
+            print(ex)
         
         self.cat=[]
         self.num=[]
@@ -163,6 +164,8 @@ class PatternFinder:
         v=[list(group[j:]) for j in range(1,size+1)]
         
         def fit(df,i,n):
+            if not self.fit:
+                return
             describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
                       ,percentile(df[agg],50),percentile(df[agg],75)]
             
@@ -231,7 +234,9 @@ class PatternFinder:
             if lamb_l>self.lamb:
                 #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
                 self.conn.execute(self.addGlobal(f[i],v[i],a,agg,'linear',self.theta_l,lamb_l))
-                
+        
+        if not self.fit:
+            return        
         #adding local with f=empty set
         describe=[mean(fd[agg]),mode(fd[agg]),percentile(fd[agg],25)
                                           ,percentile(fd[agg],50),percentile(fd[agg],75)]
@@ -269,6 +274,8 @@ class PatternFinder:
             l=1
         #df:dataframe n:length    
         def fit(df,f,v,n):
+            if not self.fit:
+                return
             describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
                                           ,percentile(df[agg],50),percentile(df[agg],75)]
             

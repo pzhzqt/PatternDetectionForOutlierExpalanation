@@ -15,7 +15,7 @@ def main():
         print(ex)
         sys.exit(1)
     
-    p=PatternFinder(engine.connect())
+    p=PatternFinder(engine.connect(),'publication')
     p.findPattern()
     engine.dispose()
         
