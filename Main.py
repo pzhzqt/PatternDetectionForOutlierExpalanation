@@ -5,7 +5,7 @@ from PatternFinder import PatternFinder
 def main():
     #pc=PC()
     #config=input("Connection config (host port dbname username password):\n").split()
-    config=['216.47.152.61','5436','antiprov','antiprov','antiprov']
+    config=['debussy.cs.iit.edu','5436','antiprov','antiprov','antiprov']
     try:
         engine = sa.create_engine(
                 'postgresql://'+config[3]+':'+config[4]+'@'
