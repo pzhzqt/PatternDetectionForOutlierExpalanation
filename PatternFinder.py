@@ -29,7 +29,6 @@ class PatternFinder:
         try:
             self.table=table
             self.schema=pd.read_sql("SELECT * FROM "+self.table+" LIMIT 1",self.conn)
-            break
         except Exception as ex:
             print(ex)
         
@@ -98,8 +97,8 @@ class PatternFinder:
                                     division=None
                                 condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
                                                         for k in range(d_index)])                              
-                                fd=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition
-                                               +' ORDER BY '+','.join(prefix), con=self.conn)                                
+                                fd=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition,
+                                               con=self.conn)                                
                                 self.fitmodel(fd,prefix,a,agg,division)
                             self.dropRollup()
                     self.dropAgg()    
