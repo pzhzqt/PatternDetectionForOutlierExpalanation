@@ -6,7 +6,6 @@ from scipy.stats import chisquare,mode
 from numpy import percentile,mean
 from time import time
 from permtest import *
-from asyncio.locks import Condition
 
 class PatternFinder:
     conn=None
