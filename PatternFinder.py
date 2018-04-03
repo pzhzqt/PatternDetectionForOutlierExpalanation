@@ -6,6 +6,7 @@ from scipy.stats import chisquare,mode
 from numpy import percentile,mean
 from time import time
 from permtest import *
+from asyncio.locks import Condition
 
 class PatternFinder:
     conn=None
@@ -97,7 +98,8 @@ class PatternFinder:
                                     division=None
                                 condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
                                                         for k in range(d_index)])                              
-                                fd=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition,
+                                fd=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition
+                                               +' ORDER BY '+','.join(prefix),
                                                con=self.conn)                                
                                 self.fitmodel(fd,prefix,a,agg,division)
                             self.dropRollup()
@@ -357,6 +359,7 @@ class PatternFinder:
     
     
     def createTable(self):
+        self.conn.execute('DROP TABLE IF EXISTS '+self.table+'_local;')
         self.conn.execute('create table IF NOT EXISTS '+self.table+'_local('+
                      'fixed varchar,'+
                      'fixed_value varchar,'+
@@ -367,8 +370,8 @@ class PatternFinder:
                      'theta float,'+
                      'stats varchar,'+
                      'param varchar);')
-        self.conn.execute('DELETE FROM '+self.table+'_local;')
         
+        self.conn.execute('DROP TABLE IF EXISTS '+self.table+'_global')
         self.conn.execute('create table IF NOT EXISTS '+self.table+'_global('+
                      'fixed varchar,'+
                      'variable varchar,'+
@@ -377,8 +380,7 @@ class PatternFinder:
                      'model varchar,'+
                      'theta float,'+
                      'lambda float);')
-        self.conn.execute('DELETE FROM '+self.table+'_global')
-        
+                
         self.conn.execute('create table IF NOT EXISTS time('+
                           'time varchar,'+
                           'description varchar);')
