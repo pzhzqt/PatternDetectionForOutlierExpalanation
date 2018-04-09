@@ -21,6 +21,7 @@ class PatternFinder:
     pc=None
     fit=None
     dist_thre=None
+    glob=[]
     
     def __init__(self, conn, table, fit=True, theta_c=0.75, theta_l=0.75, lamb=0.8, dist_thre=0.9):
         self.conn=conn
@@ -119,7 +120,8 @@ class PatternFinder:
                                 self.fitmodel(fd,prefix,a,agg,division)
                             self.dropRollup()
                     self.dropAgg()    
-        
+        if self.glob:
+            self.conn.execute("INSERT INTO "+self.table+"_global values"+','.join(self.glob))
         end=time()
         self.conn.execute('INSERT INTO time(time) values('+str(end-start)+');')
         
@@ -179,7 +181,7 @@ class PatternFinder:
         valid_c_f=[0]*size
         f=[list(group[:i]) for i in range(1,size+1)]
         v=[list(group[j:]) for j in range(1,size+1)]
-        
+        pattern=[]
         def fit(df,i,n):
             if not self.fit:
                 return
@@ -193,7 +195,7 @@ class PatternFinder:
                 nonlocal valid_c_f
                 valid_c_f[i]+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                self.conn.execute(self.addLocal(f[i],fval,v[i],a,agg,'const',theta_c,describe,describe[0]))
+                pattern.append(self.addLocal(f[i],fval,v[i],a,agg,'const',theta_c,describe,describe[0]))
               
             #fitting linear
             if  theta_c!=1 and all(attr in self.num for attr in v[i]):
@@ -211,7 +213,7 @@ class PatternFinder:
                     nonlocal valid_l_f
                     valid_l_f[i]+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                    self.conn.execute(self.addLocal(f[i],fval,v[i],a,agg,'linear',theta_l,describe,param))
+                    pattern.append(self.addLocal(f[i],fval,v[i],a,agg,'linear',theta_l,describe,param))
         
         for tup in fd.itertuples():
             position=None
@@ -247,10 +249,10 @@ class PatternFinder:
             lamb_l=valid_l_f[i]/num_f[i]
             if lamb_c>self.lamb:
                 #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
-                self.conn.execute(self.addGlobal(f[i],v[i],a,agg,'const',self.theta_c,lamb_c))
+                self.glob.append(self.addGlobal(f[i],v[i],a,agg,'const',self.theta_c,lamb_c))
             if lamb_l>self.lamb:
                 #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
-                self.conn.execute(self.addGlobal(f[i],v[i],a,agg,'linear',self.theta_l,lamb_l))
+                self.glob.append(self.addGlobal(f[i],v[i],a,agg,'linear',self.theta_l,lamb_l))
         
         if not self.fit:
             return        
@@ -261,7 +263,7 @@ class PatternFinder:
         #fitting constant
         theta_c=chisquare(fd[agg])[1]
         if theta_c>self.theta_c:
-            self.conn.execute(self.addLocal([' '],[' '],group,a,agg,'const',theta_c,describe,describe[0]))
+            pattern.append(self.addLocal([' '],[' '],group,a,agg,'const',theta_c,describe,describe[0]))
           
         #fitting linear
         if  theta_c!=1 and all(attr in self.num for attr in group):
@@ -275,8 +277,10 @@ class PatternFinder:
             param.append(lr.intercept_.tolist())
             if theta_l and theta_l>self.theta_l:
             #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                self.conn.execute(self.addLocal([' '],[' '],group,a,agg,'linear',theta_l,describe,param))
-                
+                pattern.append(self.addLocal([' '],[' '],group,a,agg,'linear',theta_l,describe,param))
+        
+        if pattern:
+            self.conn.execute("INSERT INTO "+self.table+"_local values"+','.join(pattern))        
     def fitmodel_with_division(self, fd, group, a, agg, division): 
         #fd=d.sort_values(by=f).reset_index(drop=True)
         oldKey=None
@@ -290,6 +294,7 @@ class PatternFinder:
         if all([attr in self.num for attr in v]):
             l=1
         #df:dataframe n:length    
+        pattern=[]
         def fit(df,f,v,n):
             if not self.fit:
                 return
@@ -303,7 +308,7 @@ class PatternFinder:
                 nonlocal valid_c_f
                 valid_c_f+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                self.conn.execute(self.addLocal(f,fval,v,a,agg,'const',theta_c,describe,describe[0]))
+                pattern.append(self.addLocal(f,fval,v,a,agg,'const',theta_c,describe,describe[0]))
                 
             #fitting linear
             if l==1 and theta_c!=1:
@@ -321,7 +326,7 @@ class PatternFinder:
                     nonlocal valid_l_f
                     valid_l_f+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                    self.conn.execute(self.addLocal(f,fval,v,a,agg,'linear',theta_l,describe,param))
+                    pattern.append(self.addLocal(f,fval,v,a,agg,'linear',theta_l,describe,param))
         
         for tup in fd.itertuples():
             if oldKey and any([getattr(tup,attr)!=getattr(oldKey,attr) for attr in f]):
@@ -341,14 +346,17 @@ class PatternFinder:
             if n>len(v)+1:
                 fit(temp,f,v,n)
         
+        if pattern:
+            self.conn.execute("INSERT INTO "+self.table+"_local values"+','.join(pattern))
+        
         lamb_c=valid_c_f/num_f
         lamb_l=valid_l_f/num_f
         if lamb_c>self.lamb:
             #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
-            self.conn.execute(self.addGlobal(f,v,a,agg,'const',self.theta_c,lamb_c))
+            self.glob.append(self.addGlobal(f,v,a,agg,'const',self.theta_c,lamb_c))
         if lamb_l>self.lamb:
             #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
-            self.conn.execute(self.addGlobal(f,v,a,agg,'linear',self.theta_l,lamb_l))
+            self.glob.append(self.addGlobal(f,v,a,agg,'linear',self.theta_l,lamb_l))
                           
     def addLocal(self,f,f_val,v,a,agg,model,theta,describe,param):
         f="'"+str(f).replace("'","")+"'"
@@ -360,7 +368,8 @@ class PatternFinder:
         theta="'"+str(theta)+"'"
         describe="'"+str(describe).replace("'","")+"'"
         param="'"+str(param)+"'"
-        return 'insert into '+self.table+'_local values('+','.join([f,f_val,v,a,agg,model,theta,describe,param])+');'
+        #return 'insert into '+self.table+'_local values('+','.join([f,f_val,v,a,agg,model,theta,describe,param])+');'
+        return '('+','.join([f,f_val,v,a,agg,model,theta,describe,param])+')'
     
     
     def addGlobal(self,f,v,a,agg,model,theta,lamb):
@@ -371,8 +380,9 @@ class PatternFinder:
         model="'"+model+"'"
         theta="'"+str(theta)+"'"
         lamb="'"+str(lamb)+"'"
-        return 'insert into '+self.table+'_global values('+','.join([f,v,a,agg,model,theta,lamb])+');'
-    
+        #return 'insert into '+self.table+'_global values('+','.join([f,v,a,agg,model,theta,lamb])+');'
+        return '('+','.join([f,v,a,agg,model,theta,lamb])+')'
+         
     
     def createTable(self):
         self.conn.execute('DROP TABLE IF EXISTS '+self.table+'_local;')
