@@ -41,7 +41,7 @@ class PatternFinder:
         self.grouping_attr=[]
 #         self.fd={}
         #check uniqueness, grouping_attr contains only non-unique attributes
-        unique=pd.read_sql("SELECT attname,n_distinct FROM pg_stats WHERE tablename="+table)
+        unique=pd.read_sql("SELECT attname,n_distinct FROM pg_stats WHERE tablename='"+table+"'",self.conn)
         for tup in unique.itertuples():
             if tup.n_distinct > -self.dist_thre:
                 self.grouping_attr.append(tup.attname)
