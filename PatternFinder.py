@@ -16,32 +16,41 @@ class PatternFinder:
     cat=None
     num=None
     schema=None
+    grouping_attr=None
+    c_star=False
     pc=None
     fit=None
+    dist_thre=None
     
-    def __init__(self, conn, table, fit=True, theta_c=0.75, theta_l=0.75, lamb=0.8):
+    def __init__(self, conn, table, fit=True, theta_c=0.75, theta_l=0.75, lamb=0.8, dist_thre=0.9):
         self.conn=conn
         self.theta_c=theta_c
         self.theta_l=theta_l
         self.lamb=lamb
         self.fit=fit
+        self.dist_thre=dist_thre
         
         try:
             self.table=table
-            self.schema=pd.read_sql("SELECT * FROM "+self.table+" LIMIT 1",self.conn)
+            self.schema=list(pd.read_sql("SELECT * FROM "+self.table+" LIMIT 1",self.conn))
         except Exception as ex:
             print(ex)
         
         self.cat=[]
         self.num=[]
+        self.grouping_attr=[]
 #         self.fd={}
+        #check uniqueness, grouping_attr contains only non-unique attributes
+        unique=pd.read_sql("SELECT attname,n_distinct FROM pg_stats WHERE tablename="+table)
+        for tup in unique.itertuples():
+            if tup.n_distinct > -self.dist_thre:
+                self.grouping_attr.append(tup.attname)
+                
         for col in self.schema:
 #             if col=='year':
 #                 self.num.append(col)
 #             elif col!='id':
 #                 self.cat.append(col)
-            if col=='id':
-                continue
             try:
                 self.conn.execute("SELECT CAST("+col+" AS NUMERIC) FROM "+self.table)
                 self.num.append(col)
@@ -54,13 +63,21 @@ class PatternFinder:
         self.createTable()
         start=time()
         
-        for a in self.schema:
-            if a in self.num:
-                aggList=["count","sum"]
-            else:
+        for a in self.schema+['*']:
+            if a=='*':
                 aggList=["count"]
+            elif a in self.grouping_attr:
+                if a in self.num:
+                    aggList=["count","sum"]
+                else:
+                    aggList=["count"]
+            else:
+                if a in self.num:
+                    aggList=["sum"]
+                else:# for all unique in_a, ignore
+                    continue
             for agg in aggList:
-                cols=[col for col in self.cat+self.num if col!=a]
+                cols=[col for col in self.grouping_attr if col!=a]
                 n=len(cols)
                 combs=combinations([i for i in range(n)],min(4,n))
                 for comb in combs:
@@ -97,8 +114,7 @@ class PatternFinder:
                                     division=None
                                 condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
                                                         for k in range(d_index)])                              
-                                fd=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition
-                                               +' ORDER BY '+','.join(prefix),
+                                fd=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition,
                                                con=self.conn)                                
                                 self.fitmodel(fd,prefix,a,agg,division)
                             self.dropRollup()
@@ -139,7 +155,8 @@ class PatternFinder:
         gsets=','.join(['('+','.join(group[:prefix])+')' for prefix in range(d_index,pre,-1)])
         self.conn.execute('CREATE TEMP TABLE grouping AS '+
                         'SELECT '+grouping+', SUM('+agg+') as '+agg+
-                        ' FROM agg GROUP BY GROUPING SETS('+gsets+')')
+                        ' FROM agg GROUP BY GROUPING SETS('+gsets+')'+
+                        ' ORDER BY '+','.join(group[:d_index]))
         
     def dropRollup(self):
         self.conn.execute('DROP TABLE grouping')
