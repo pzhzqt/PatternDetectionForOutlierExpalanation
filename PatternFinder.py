@@ -6,6 +6,7 @@ from scipy.stats import chisquare,mode
 from numpy import percentile,mean
 from time import time
 from permtest import *
+from fd import *
 
 class PatternFinder:
     conn=None
@@ -21,6 +22,8 @@ class PatternFinder:
     pc=None
     fit=None
     dist_thre=None
+    fdplus={}
+    lhs=[]
     glob=[]
     
     def __init__(self, conn, table, fit=True, theta_c=0.75, theta_l=0.75, lamb=0.8, dist_thre=0.9):
@@ -57,6 +60,27 @@ class PatternFinder:
                 self.num.append(col)
             except:
                 self.cat.append(col)
+    
+    def setFd(self, fd):
+        '''
+        tyep fd:list of size-2 tuples, tuple[0]=list of lhs attributes and tuple[1]=list of rhs attributes
+        '''
+        self.fdplus=allClosure(fd, self.schema)
+        for i in self.fdplus:
+            for j in i:
+                self.lhs.append(j)
+        
+    def validFd(self,group,division):
+        for lhs in self.fdplus:
+            if not [i for i in lhs if i not in group]:#empty means lhs all in group
+                rhs=[i for i in group if i in self.fdplus[lhs]]
+                if rhs:
+                    if not [i for i in lhs if i not in group[:division]]:#lhs all in fixed and exist rhs in group
+                        return False
+                    if not [i for i in lhs if i not in group[division:]]:#lhs all in variable
+                        if [i for i in group[division:] if i in self.fdplus[lhs]]:#exists rhs in variable
+                            return False
+        return True
                 
     
     def findPattern(self):
@@ -115,9 +139,9 @@ class PatternFinder:
                                     division=None
                                 condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
                                                         for k in range(d_index)])                              
-                                fd=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition,
+                                df=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition,
                                                con=self.conn)                                
-                                self.fitmodel(fd,prefix,a,agg,division)
+                                self.fitmodel(df,prefix,a,agg,division)
                             self.dropRollup()
                     self.dropAgg()    
         if self.glob:
@@ -168,7 +192,8 @@ class PatternFinder:
         
     def fitmodel(self, fd, group, a, agg, division):  
         if division:
-            self.fitmodel_with_division(fd, group, a, agg, division)
+            if self.validFd(group, division):
+                self.fitmodel_with_division(fd, group, a, agg, division)
         else:
             self.fitmodel_no_division(fd, group, a, agg)
             
@@ -181,6 +206,7 @@ class PatternFinder:
         valid_c_f=[0]*size
         f=[list(group[:i]) for i in range(1,size+1)]
         v=[list(group[j:]) for j in range(1,size+1)]
+        fd_valid=[self.validFd(group, i) for i in range(1,size+1)]
         pattern=[]
         def fit(df,i,n):
             if not self.fit:
@@ -229,7 +255,7 @@ class PatternFinder:
                     temp=fd[oldIndex[i]:index]
                     num_f[i]+=1
                     n=index-oldIndex[i]
-                    if n>len(v[i])+1:
+                    if n>len(v[i])+1 and fd_valid[i]:
                         fit(temp,i,n)
                     oldIndex[i]=index
                     
@@ -254,7 +280,7 @@ class PatternFinder:
                 #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
                 self.glob.append(self.addGlobal(f[i],v[i],a,agg,'linear',self.theta_l,lamb_l))
         
-        if not self.fit:
+        if not self.fit or self.validFd(group, 0):
             return        
         #adding local with f=empty set
         describe=[mean(fd[agg]),mode(fd[agg]),percentile(fd[agg],25)
