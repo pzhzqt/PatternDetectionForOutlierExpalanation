@@ -22,6 +22,7 @@ class PatternFinder:
     pc=None
     fit=None
     dist_thre=None
+    time=None
     fdplus={}
     lhs=[]
     glob=[]
@@ -33,6 +34,7 @@ class PatternFinder:
         self.lamb=lamb
         self.fit=fit
         self.dist_thre=dist_thre
+        self.time={'aggregate':0,'df':0,'regression':0,'insertion':0,'total':0}
         
         try:
             self.table=table
@@ -138,51 +140,59 @@ class PatternFinder:
                                 if division and division>=j:
                                     division=None
                                 condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
-                                                        for k in range(d_index)])                              
+                                                        for k in range(d_index)])
+                                df_start=time()                              
                                 df=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition,
-                                               con=self.conn)                                
+                                               con=self.conn)
+                                self.time['df']+=time()-df_start                                
                                 self.fitmodel(df,prefix,a,agg,division)
                             self.dropRollup()
                     self.dropAgg()    
         if self.glob:
+            insert_start=time()
             self.conn.execute("INSERT INTO "+self.table+"_global values"+','.join(self.glob))
-        end=time()
-        self.conn.execute('INSERT INTO time(time) values('+str(end-start)+');')
+            self.time['insertion']+=time()-insert_start
+        self.time['total']=time()-start
+        self.insertTime()
         
         
-    def formCube(self, a, agg, attr):
-        group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a and num in attr]+
-                        [cat for cat in self.cat if cat!=a and cat in attr])
-        grouping=",".join(["CAST("+num+" AS NUMERIC), GROUPING(CAST("+num+" AS NUMERIC)) as g_"+num
-                        for num in self.num if num!=a and num in attr]+
-            [cat+", GROUPING("+cat+") as g_"+cat for cat in self.cat if cat!=a and cat in attr])
-        if a in self.num:
-            a="CAST("+a+" AS NUMERIC)"
-        query="CREATE TABLE cube AS SELECT "+agg+"("+a+"), "+grouping+" FROM "+self.table+" GROUP BY CUBE("+group+")"
-        self.conn.execute(query)
-        indx=",".join(["g_"+col for col in attr])
-        self.conn.execute("CREATE INDEX in_a on cube("+indx+");")
-        
-    
-    def dropCube(self):
-        self.conn.execute("DROP TABLE cube;")
+#     def formCube(self, a, agg, attr):
+#         group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a and num in attr]+
+#                         [cat for cat in self.cat if cat!=a and cat in attr])
+#         grouping=",".join(["CAST("+num+" AS NUMERIC), GROUPING(CAST("+num+" AS NUMERIC)) as g_"+num
+#                         for num in self.num if num!=a and num in attr]+
+#             [cat+", GROUPING("+cat+") as g_"+cat for cat in self.cat if cat!=a and cat in attr])
+#         if a in self.num:
+#             a="CAST("+a+" AS NUMERIC)"
+#         query="CREATE TABLE cube AS SELECT "+agg+"("+a+"), "+grouping+" FROM "+self.table+" GROUP BY CUBE("+group+")"
+#         self.conn.execute(query)
+#         indx=",".join(["g_"+col for col in attr])
+#         self.conn.execute("CREATE INDEX in_a on cube("+indx+");")
+#         
+#     
+#     def dropCube(self):
+#         self.conn.execute("DROP TABLE cube;")
         
         
     def aggQuery(self, g, a, agg):
+        start=time()
         group=",".join(["CAST("+num+" AS NUMERIC)" for num in self.num if num!=a and num in g]+
                         [cat for cat in self.cat if cat!=a and cat in g])
         if agg=='sum':
             a='CAST('+a+' AS NUMERIC)'
         query="CREATE TEMP TABLE agg as SELECT "+group+","+agg+"("+a+")"+" FROM "+self.table+" GROUP BY "+group
         self.conn.execute(query)
+        self.time['aggregate']+=time()-start
     
     def rollupQuery(self, group, pre, d_index, agg):
+        start=time()
         grouping=",".join([attr+", GROUPING("+attr+") as g_"+attr for attr in group[:d_index]])
         gsets=','.join(['('+','.join(group[:prefix])+')' for prefix in range(d_index,pre,-1)])
         self.conn.execute('CREATE TEMP TABLE grouping AS '+
                         'SELECT '+grouping+', SUM('+agg+') as '+agg+
                         ' FROM agg GROUP BY GROUPING SETS('+gsets+')'+
                         ' ORDER BY '+','.join(group[:d_index]))
+        self.time['aggregate']+=time()-start
         
     def dropRollup(self):
         self.conn.execute('DROP TABLE grouping')
@@ -211,6 +221,7 @@ class PatternFinder:
         def fit(df,i,n):
             if not self.fit:
                 return
+            reg_start=time()
             describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
                       ,percentile(df[agg],50),percentile(df[agg],75)]
             
@@ -240,6 +251,8 @@ class PatternFinder:
                     valid_l_f[i]+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
                     pattern.append(self.addLocal(f[i],fval,v[i],a,agg,'linear',theta_l,describe,param))
+                    
+            self.time['regression']+=time()-reg_start
         
         for tup in fd.itertuples():
             position=None
@@ -283,6 +296,7 @@ class PatternFinder:
         if not self.fit or self.validFd(group, 0):
             return        
         #adding local with f=empty set
+        reg_start=time()
         describe=[mean(fd[agg]),mode(fd[agg]),percentile(fd[agg],25)
                                           ,percentile(fd[agg],50),percentile(fd[agg],75)]
                            
@@ -304,9 +318,12 @@ class PatternFinder:
             if theta_l and theta_l>self.theta_l:
             #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
                 pattern.append(self.addLocal([' '],[' '],group,a,agg,'linear',theta_l,describe,param))
+        self.time['regression']+=time()-reg_start
         
         if pattern:
+            insert_start=time()
             self.conn.execute("INSERT INTO "+self.table+"_local values"+','.join(pattern))        
+            self.time['insertion']+=time()-insert_start
     def fitmodel_with_division(self, fd, group, a, agg, division): 
         #fd=d.sort_values(by=f).reset_index(drop=True)
         oldKey=None
@@ -324,6 +341,7 @@ class PatternFinder:
         def fit(df,f,v,n):
             if not self.fit:
                 return
+            reg_start=time()
             describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
                                           ,percentile(df[agg],50),percentile(df[agg],75)]
             
@@ -353,6 +371,8 @@ class PatternFinder:
                     valid_l_f+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
                     pattern.append(self.addLocal(f,fval,v,a,agg,'linear',theta_l,describe,param))
+                    
+            self.time['regression']+=time()-reg_start
         
         for tup in fd.itertuples():
             if oldKey and any([getattr(tup,attr)!=getattr(oldKey,attr) for attr in f]):
@@ -373,7 +393,9 @@ class PatternFinder:
                 fit(temp,f,v,n)
         
         if pattern:
+            insert_start=time()
             self.conn.execute("INSERT INTO "+self.table+"_local values"+','.join(pattern))
+            self.time['insertion']+=time()-insert_start
         
         lamb_c=valid_c_f/num_f
         lamb_l=valid_l_f/num_f
@@ -432,8 +454,16 @@ class PatternFinder:
                      'model varchar,'+
                      'theta float,'+
                      'lambda float);')
-                
-        self.conn.execute('create table IF NOT EXISTS time('+
-                          'time varchar,'+
+        
+        attr=''
+        for key in self.time:
+            attr+=key+' varchar,'
+        self.conn.execute('create table IF NOT EXISTS time_detail('+
+                          attr+
                           'description varchar);')
         
+        
+    def insertTime(self):
+        attributes=list(self.time)
+        values=[self.time[i] for i in attributes]
+        self.conn.execute('INSERT INTO time_detail('+','.join(attributes)+') values('+','.join(values)+')')
