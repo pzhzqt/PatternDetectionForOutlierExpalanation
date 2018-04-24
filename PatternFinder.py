@@ -465,5 +465,5 @@ class PatternFinder:
         
     def insertTime(self):
         attributes=list(self.time)
-        values=[self.time[i] for i in attributes]
+        values=[str(self.time[i]) for i in attributes]
         self.conn.execute('INSERT INTO time_detail('+','.join(attributes)+') values('+','.join(values)+')')
