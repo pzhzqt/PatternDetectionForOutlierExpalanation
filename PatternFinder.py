@@ -6,26 +6,29 @@ from scipy.stats import chisquare,mode
 from numpy import percentile,mean
 from time import time
 from permtest import *
-from fd import *
+from fd import closure
+from numpy.f2py.auxfuncs import throw_error
 
 class PatternFinder:
     conn=None
     table=None
-    theta_c=None
-    theta_l=None
-    lamb=None
-    cat=None
-    num=None
-    schema=None
-    grouping_attr=None
-    c_star=False
-    pc=None
-    fit=None
-    dist_thre=None
-    time=None
-    fdplus={}
-    lhs=[]
-    glob=[]
+    theta_c=None #theta for constant regression
+    theta_l=None #theta for linear regression
+    lamb=None #lambda
+    cat=None #categorical attributes
+    num=None #numeric attributes
+    schema=None #list of all attributes
+    n=None#number of attributes
+    attr_index={} #index of all attributes
+    grouping_attr=None #attributes can be in group
+    #c_star=False
+    #pc=None
+    fit=None #if we are fitting model
+    dist_thre=None #threshold for identifying distinct-value attributes
+    time=None #record running time for each section
+    fd={} #functional dependencies
+    glob=[] #global patterns
+    num_rows=None #number of rows of self.table
     
     def __init__(self, conn, table, fit=True, theta_c=0.75, theta_l=0.75, lamb=0.8, dist_thre=0.9):
         self.conn=conn
@@ -34,7 +37,8 @@ class PatternFinder:
         self.lamb=lamb
         self.fit=fit
         self.dist_thre=dist_thre
-        self.time={'aggregate':0,'df':0,'regression':0,'insertion':0,'total':0}
+        self.time={'aggregate':0,'df':0,'regression':0,'insertion':0,'drop':0,'loop':0,
+                   'innerloop':0,'get_attr':0,'make_reference':0,'itertuples':0,'total':0}
         
         try:
             self.table=table
@@ -42,14 +46,20 @@ class PatternFinder:
         except Exception as ex:
             print(ex)
         
+        self.n=len(self.schema)
+        for i in range(self.n):
+            self.attr_index[self.schema[i]]=i
+        
         self.cat=[]
         self.num=[]
         self.grouping_attr=[]
+        self.num_rows=pd.read_sql("SELECT count(*) as num from "+self.table,self.conn)['num'][0]
 #         self.fd={}
         #check uniqueness, grouping_attr contains only non-unique attributes
         unique=pd.read_sql("SELECT attname,n_distinct FROM pg_stats WHERE tablename='"+table+"'",self.conn)
         for tup in unique.itertuples():
-            if tup.n_distinct > -self.dist_thre:
+            if (tup.n_distinct<0 and tup.n_distinct > -self.dist_thre) or \
+            (tup.n_distinct>0 and tup.n_distinct<self.num_rows*self.dist_thre):
                 self.grouping_attr.append(tup.attname)
                 
         for col in self.schema:
@@ -67,24 +77,49 @@ class PatternFinder:
         '''
         tyep fd:list of size-2 tuples, tuple[0]=list of lhs attributes and tuple[1]=list of rhs attributes
         '''
-        self.fdplus=allClosure(fd, self.schema)
-        for i in self.fdplus:
-            for j in i:
-                self.lhs.append(j)
+        for tup in fd:
+            for i in range(2):
+                for j in range(len(tup[i])):
+                    try:
+                        tup[i][j]=self.attr_index[tup[i][j]]
+                    except KeyError as ex:
+                        print(str(ex)+" is not in the table")
+                        raise ex
+        self.fd=fd
         
-    def validFd(self,group,division):
-        for lhs in self.fdplus:
-            if not [i for i in lhs if i not in group]:#empty means lhs all in group
-                rhs=[i for i in group if i in self.fdplus[lhs]]
-                if rhs:
-                    if not [i for i in lhs if i not in group[:division]]:#lhs all in fixed and exist rhs in group
-                        return False
-                    if not [i for i in lhs if i not in group[division:]]:#lhs all in variable
-                        if [i for i in group[division:] if i in self.fdplus[lhs]]:#exists rhs in variable
-                            return False
-        return True
+    def validateFd(self,group,division=None):
+        '''
+        check if we want to ignore f=group[:division], v=group[division:]
+        type group: tuple of strings
+        
+        return True if group is valid
+        return False if we decide to ignore it
+        
+        if division=None, check all possible divisions, and return boolean[]
+        '''
+        if division:
+            f=set()# indices of fixed attributes
+            attrs=set()# indices of all attributes
+            for i in range(len(group)):
+                if i<division:
+                    f.add(self.attr_index[group[i]])
+                attrs.add(self.attr_index[group[i]])
                 
-    
+            for i in range(len(group)):
+                cur=self.attr_index[group[i]]
+                if i<division: #group[i] in f
+                    if cur in closure(self.fd,self.n,f-{cur}):
+                        return False
+                else: #group[i] in v
+                    if cur in closure(self.fd,self.n,attrs-{cur}):
+                        return False
+                    
+            return True
+        else:
+            n=len(group)
+            ret=[self.validateFd(group,i) for i in range(1,n)] #division from 1 to n-1
+            return ret
+            
     def findPattern(self):
 #       self.pc=PC.PatternCollection(list(self.schema))
         self.createTable()
@@ -112,6 +147,11 @@ class PatternFinder:
                     self.aggQuery(grouping,a,agg)
                     perms=permutations(comb,len(comb))
                     for perm in perms:
+                        
+                        #check if perm[0]->perm[1], if so, ignore whole group
+                        if perm[1] in closure(self.fd,self.n,[perm[0]]):
+                            continue
+                        
                         decrease=0
                         d_index=None
                         division=None
@@ -139,6 +179,11 @@ class PatternFinder:
                                 prefix=group[:j]
                                 if division and division>=j:
                                     division=None
+                                    
+                                #check functional dependency here if division exists, otherwise check in fit
+                                if division and not self.validateFd(prefix,division):
+                                    continue
+                                
                                 condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
                                                         for k in range(d_index)])
                                 df_start=time()                              
@@ -195,17 +240,22 @@ class PatternFinder:
         self.time['aggregate']+=time()-start
         
     def dropRollup(self):
+        drop_start=time()
         self.conn.execute('DROP TABLE grouping')
+        self.time['drop']+=time()-drop_start
         
     def dropAgg(self):
+        drop_start=time()
         self.conn.execute('DROP TABLE agg')
+        self.time['drop']+=time()-drop_start
         
-    def fitmodel(self, fd, group, a, agg, division):  
+    def fitmodel(self, fd, group, a, agg, division):
+        loop_start=time()
         if division:
-            if self.validFd(group, division):
-                self.fitmodel_with_division(fd, group, a, agg, division)
+            self.fitmodel_with_division(fd, group, a, agg, division)
         else:
             self.fitmodel_no_division(fd, group, a, agg)
+        self.time['loop']+=time()-loop_start
             
     def fitmodel_no_division(self, fd, group, a, agg):
         size=len(group)-1
@@ -216,7 +266,9 @@ class PatternFinder:
         valid_c_f=[0]*size
         f=[list(group[:i]) for i in range(1,size+1)]
         v=[list(group[j:]) for j in range(1,size+1)]
-        fd_valid=[self.validFd(group, i) for i in range(1,size+1)]
+        fd_valid=self.validateFd(group)
+        if not any(fd_valid):
+            return
         pattern=[]
         def fit(df,i,n):
             if not self.fit:
@@ -253,34 +305,45 @@ class PatternFinder:
                     pattern.append(self.addLocal(f[i],fval,v[i],a,agg,'linear',theta_l,describe,param))
                     
             self.time['regression']+=time()-reg_start
-        
+            
+        inner_loop_start=time()
+        iter_start=time()
         for tup in fd.itertuples():
+            self.time['itertuples']+=time()-iter_start
             position=None
             if oldKey:
+                get_attr=time()
                 for i in range(size):
                     if getattr(tup,group[i])!=getattr(oldKey,group[i]):
                         position=i
                         break
+                self.time['get_attr']+=time()-get_attr
             
             if position is not None:
                 index=tup.Index
                 for i in range(position,size):
-                    temp=fd[oldIndex[i]:index]
+#                     make_reference=time()
+#                     temp=fd[oldIndex[i]:index].copy()
+#                     self.time['make_reference']+=time()-make_reference
                     num_f[i]+=1
                     n=index-oldIndex[i]
                     if n>len(v[i])+1 and fd_valid[i]:
-                        fit(temp,i,n)
+                        fit(fd[oldIndex[i]:index],i,n)
                     oldIndex[i]=index
                     
             oldKey=tup
+            iter_start=time()
             
         if oldKey:
             for i in range(size):
-                temp=fd[oldIndex[i]:]
+#                 make_reference=time()
+#                 temp=fd[oldIndex[i]:].copy()
+#                 self.time['make_reference']+=time()-make_reference
                 num_f[i]+=1
-                n=len(temp)
-                if n>len(v[i])+1:
-                    fit(temp,i,n)
+                n=oldKey.Index-oldIndex[i]
+                if n>len(v[i])+1 and fd_valid[i]:
+                    fit(fd[oldIndex[i]:],i,n)
+        self.time['innerloop']+=time()-inner_loop_start
         
         #sifting global            
         for i in range(size):
@@ -293,9 +356,12 @@ class PatternFinder:
                 #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
                 self.glob.append(self.addGlobal(f[i],v[i],a,agg,'linear',self.theta_l,lamb_l))
         
-        if not self.fit or self.validFd(group, 0):
-            return        
+        if not self.fit:
+            return 
+        
         #adding local with f=empty set
+        if not self.validateFd(group,0):
+            return
         reg_start=time()
         describe=[mean(fd[agg]),mode(fd[agg]),percentile(fd[agg],25)
                                           ,percentile(fd[agg],50),percentile(fd[agg],75)]
@@ -374,23 +440,37 @@ class PatternFinder:
                     
             self.time['regression']+=time()-reg_start
         
+        inner_loop_start=time()
+        iter_start=time()
+        change=False
         for tup in fd.itertuples():
-            if oldKey and any([getattr(tup,attr)!=getattr(oldKey,attr) for attr in f]):
+            self.time['itertuples']+=time()-iter_start
+            if oldKey:
+                get_attr=time()
+                change=any([getattr(tup,attr)!=getattr(oldKey,attr) for attr in f])
+                self.time['get_attr']+=time()-get_attr
+            if change:
                 index=tup.Index
-                temp=fd[oldIndex:index]
+#                 make_reference=time()
+#                 temp=fd[oldIndex:index].copy()
+#                 self.time['make_reference']+=time()-make_reference
                 num_f+=1
                 n=index-oldIndex
                 if n>len(v)+1:
-                    fit(temp,f,v,n)                       
+                    fit(fd[oldIndex:index],f,v,n)                       
                 oldIndex=index
             oldKey=tup
+            iter_start=time()
             
         if oldKey:
-            temp=fd[oldIndex:]
+#             make_reference=time()
+#             temp=fd[oldIndex:].copy()
+#             self.time['make_reference']+=time()-make_reference
             num_f+=1
-            n=len(temp)
+            n=oldKey.Index-oldIndex
             if n>len(v)+1:
-                fit(temp,f,v,n)
+                fit(fd[oldIndex:],f,v,n)
+        self.time['innerloop']+=time()-inner_loop_start
         
         if pattern:
             insert_start=time()
@@ -459,6 +539,7 @@ class PatternFinder:
         for key in self.time:
             attr+=key+' varchar,'
         self.conn.execute('create table IF NOT EXISTS time_detail('+
+                          'id serial primary key,'+
                           attr+
                           'description varchar);')
         
