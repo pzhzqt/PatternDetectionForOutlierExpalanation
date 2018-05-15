@@ -175,6 +175,20 @@ class PatternFinder:
                         else:
                             group=tuple([cols[i] for i in perm])
                             self.rollupQuery(group, pre, d_index, agg)
+
+                            prev_rows=None
+                            for j in range(pre,d_index+1):#first loop is to set prev_rows
+                                prefix=group[:j]
+                                condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
+                                                        for k in range(d_index)])
+                                cur_rows=pd.read_sql('SELECT count(*) as num FROM grouping WHERE '+condition,
+                                               con=self.conn)['num'][0]
+                                if prev_rows and (prev_rows>=cur_rows*self.dist_thre or 
+                                                  cur_rows>=self.num_rows*self.dist_thre):
+                                    d_index=j-1 #group[:j] will violate functional dependency rule
+                                    break
+                                prev_rows=cur_rows
+                                
                             for j in range(d_index,pre,-1):
                                 prefix=group[:j]
                                 if division and division>=j:
@@ -232,10 +246,11 @@ class PatternFinder:
     def rollupQuery(self, group, pre, d_index, agg):
         start=time()
         grouping=",".join([attr+", GROUPING("+attr+") as g_"+attr for attr in group[:d_index]])
-        gsets=','.join(['('+','.join(group[:prefix])+')' for prefix in range(d_index,pre,-1)])
+#        gsets=','.join(['('+','.join(group[:prefix])+')' for prefix in range(d_index,pre,-1)])
         self.conn.execute('CREATE TEMP TABLE grouping AS '+
                         'SELECT '+grouping+', SUM('+agg+') as '+agg+
-                        ' FROM agg GROUP BY GROUPING SETS('+gsets+')'+
+#                        ' FROM agg GROUP BY GROUPING SETS('+gsets+')'+
+                        ' FROM agg GROUP BY ROLLUP('+','.join(group)+')'+
                         ' ORDER BY '+','.join(group[:d_index]))
         self.time['aggregate']+=time()-start
         
