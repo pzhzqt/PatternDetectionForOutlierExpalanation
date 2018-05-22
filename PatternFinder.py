@@ -1,13 +1,14 @@
 import pandas as pd
 from itertools import combinations
-#import statsmodels.formula.api as sm
+import statsmodels.formula.api as sm
+from psycopg2.extras import Json
 from sklearn.linear_model import LinearRegression
 from scipy.stats import chisquare,mode
 from numpy import percentile,mean
 from time import time
 from permtest import *
 from fd import closure
-from numpy.f2py.auxfuncs import throw_error
+from sqlalchemy.dialects.firebird.base import VARCHAR
 
 class PatternFinder:
     conn=None
@@ -29,14 +30,21 @@ class PatternFinder:
     fd={} #functional dependencies
     glob=[] #global patterns
     num_rows=None #number of rows of self.table
+    reg_package=None #statsmodels or sklearn
+    supp_l=None #local support
+    supp_g=None #global support
     
-    def __init__(self, conn, table, fit=True, theta_c=0.75, theta_l=0.75, lamb=0.8, dist_thre=0.9):
+    def __init__(self, conn, table, fit=True, theta_c=0.5, theta_l=0.5, lamb=0.5, dist_thre=0.99,
+                 reg_package='statsmodels',supp_l=5,supp_g=5):
         self.conn=conn
         self.theta_c=theta_c
         self.theta_l=theta_l
         self.lamb=lamb
         self.fit=fit
         self.dist_thre=dist_thre
+        self.reg_package=reg_package
+        self.supp_l=supp_l
+        self.supp_g=supp_g
         self.time={'aggregate':0,'df':0,'regression':0,'insertion':0,'drop':0,'loop':0,
                    'innerloop':0,'get_attr':0,'make_reference':0,'itertuples':0,'total':0}
         
@@ -133,10 +141,10 @@ class PatternFinder:
                     aggList=["count","sum"]
                 else:
                     aggList=["count"]
-            else:
+            else:# for all unique in_a, ignore count and do count(*) instead
                 if a in self.num:
                     aggList=["sum"]
-                else:# for all unique in_a, ignore
+                else:
                     continue
             for agg in aggList:
                 cols=[col for col in self.grouping_attr if col!=a]
@@ -299,20 +307,26 @@ class PatternFinder:
                 nonlocal valid_c_f
                 valid_c_f[i]+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                pattern.append(self.addLocal(f[i],fval,v[i],a,agg,'const',theta_c,describe,describe[0]))
+                pattern.append(self.addLocal(f[i],fval,v[i],a,agg,'const',theta_c,describe,'NULL'))
               
             #fitting linear
-            if  theta_c!=1 and all(attr in self.num for attr in v[i]):
-                #=======================================================
-                # lr=sm.ols(agg+'~'+'+'.join(v),data=df).fit()
-                # theta_l=lr.rsquared_adj
-                #=======================================================
-                lr=LinearRegression()
-                lr.fit(df[v[i]],df[agg])
-                theta_l=lr.score(df[v[i]],df[agg])
-                theta_l=1-(1-theta_l)*(n-1)/(n-len(v[i])-1)
-                param=lr.coef_.tolist()
-                param.append(lr.intercept_.tolist())
+            if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v[i])
+                                or
+                                (self.reg_package=='statsmodels' and any(attr in self.num for attr in v[i])))):
+
+                if self.reg_package=='sklearn':   
+                    lr=LinearRegression()
+                    lr.fit(df[v[i]],df[agg])
+                    theta_l=lr.score(df[v[i]],df[agg])
+                    theta_l=1-(1-theta_l)*(n-1)/(n-len(v[i])-1)
+                    param=lr.coef_.tolist()
+                    param.append(lr.intercept_.tolist())
+                    param="'"+str(param)+"'"
+                else: #statsmodels
+                    lr=sm.ols(agg+'~'+'+'.join(v[i]),data=df).fit()
+                    theta_l=lr.rsquared_adj
+                    param=Json(dict(lr.params))
+                
                 if theta_l and theta_l>self.theta_l:
                     nonlocal valid_l_f
                     valid_l_f[i]+=1
@@ -340,10 +354,11 @@ class PatternFinder:
 #                     make_reference=time()
 #                     temp=fd[oldIndex[i]:index].copy()
 #                     self.time['make_reference']+=time()-make_reference
-                    num_f[i]+=1
                     n=index-oldIndex[i]
-                    if n>len(v[i])+1 and fd_valid[i]:
-                        fit(fd[oldIndex[i]:index],i,n)
+                    if n>=self.supp_l:
+                        num_f[i]+=1
+                        if fd_valid[i]:
+                            fit(fd[oldIndex[i]:index],i,n)
                     oldIndex[i]=index
                     
             oldKey=tup
@@ -354,22 +369,24 @@ class PatternFinder:
 #                 make_reference=time()
 #                 temp=fd[oldIndex[i]:].copy()
 #                 self.time['make_reference']+=time()-make_reference
-                num_f[i]+=1
                 n=oldKey.Index-oldIndex[i]
-                if n>len(v[i])+1 and fd_valid[i]:
-                    fit(fd[oldIndex[i]:],i,n)
+                if n>self.supp_l:
+                    num_f[i]+=1
+                    if fd_valid[i]:
+                        fit(fd[oldIndex[i]:],i,n)
         self.time['innerloop']+=time()-inner_loop_start
         
         #sifting global            
         for i in range(size):
-            lamb_c=valid_c_f[i]/num_f[i]
-            lamb_l=valid_l_f[i]/num_f[i]
-            if lamb_c>self.lamb:
-                #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
-                self.glob.append(self.addGlobal(f[i],v[i],a,agg,'const',self.theta_c,lamb_c))
-            if lamb_l>self.lamb:
-                #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
-                self.glob.append(self.addGlobal(f[i],v[i],a,agg,'linear',self.theta_l,lamb_l))
+            if num_f[i]>self.supp_g:
+                lamb_c=valid_c_f[i]/num_f[i]
+                lamb_l=valid_l_f[i]/num_f[i]
+                if lamb_c>self.lamb:
+                    #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
+                    self.glob.append(self.addGlobal(f[i],v[i],a,agg,'const',self.theta_c,lamb_c))
+                if lamb_l>self.lamb:
+                    #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
+                    self.glob.append(self.addGlobal(f[i],v[i],a,agg,'linear',self.theta_l,lamb_l))
         
         if not self.fit:
             return 
@@ -384,18 +401,30 @@ class PatternFinder:
         #fitting constant
         theta_c=chisquare(fd[agg])[1]
         if theta_c>self.theta_c:
-            pattern.append(self.addLocal([' '],[' '],group,a,agg,'const',theta_c,describe,describe[0]))
+            pattern.append(self.addLocal([' '],[' '],group,a,agg,'const',theta_c,describe,'NULL'))
           
+          
+                    
         #fitting linear
-        if  theta_c!=1 and all(attr in self.num for attr in group):
-            lr=LinearRegression()
+        if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in group)
+                            or
+                            (self.reg_package=='statsmodels' and any(attr in self.num for attr in group)))):
+            
             gl=list(group)
-            lr.fit(fd[gl],fd[agg])
-            theta_l=lr.score(fd[gl],fd[agg])
-            n=len(fd)
-            theta_l=1-(1-theta_l)*(n-1)/(n-len(group)-1)
-            param=lr.coef_.tolist()
-            param.append(lr.intercept_.tolist())
+            if self.reg_package=='sklearn':
+                lr=LinearRegression()
+                lr.fit(fd[gl],fd[agg])
+                theta_l=lr.score(fd[gl],fd[agg])
+                n=len(fd)
+                theta_l=1-(1-theta_l)*(n-1)/(n-len(group)-1)
+                param=lr.coef_.tolist()
+                param.append(lr.intercept_.tolist())
+                param="'"+str(param)+"'"
+            else: #statsmodels
+                lr=sm.ols(agg+'~'+'+'.join(gl),data=fd).fit()
+                theta_l=lr.rsquared_adj
+                param=Json(dict(lr.params))
+            
             if theta_l and theta_l>self.theta_l:
             #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
                 pattern.append(self.addLocal([' '],[' '],group,a,agg,'linear',theta_l,describe,param))
@@ -414,9 +443,6 @@ class PatternFinder:
         valid_c_f=0
         f=list(group[:division])
         v=list(group[division:])
-        l=0
-        if all([attr in self.num for attr in v]):
-            l=1
         #df:dataframe n:length    
         pattern=[]
         def fit(df,f,v,n):
@@ -433,20 +459,26 @@ class PatternFinder:
                 nonlocal valid_c_f
                 valid_c_f+=1
                 #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                pattern.append(self.addLocal(f,fval,v,a,agg,'const',theta_c,describe,describe[0]))
+                pattern.append(self.addLocal(f,fval,v,a,agg,'const',theta_c,describe,'NULL'))
                 
             #fitting linear
-            if l==1 and theta_c!=1:
-                #=======================================================
-                # lr=sm.ols(agg+'~'+'+'.join(v),data=df).fit()
-                # theta_l=lr.rsquared_adj
-                #=======================================================
-                lr=LinearRegression()
-                lr.fit(df[v],df[agg])
-                theta_l=lr.score(df[v],df[agg])
-                theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
-                param=lr.coef_.tolist()
-                param.append(lr.intercept_.tolist())
+            if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v)
+                                or
+                                (self.reg_package=='statsmodels' and any(attr in self.num for attr in v)))):
+
+                if self.reg_package=='sklearn': 
+                    lr=LinearRegression()
+                    lr.fit(df[v],df[agg])
+                    theta_l=lr.score(df[v],df[agg])
+                    theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
+                    param=lr.coef_.tolist()
+                    param.append(lr.intercept_.tolist())
+                    param="'"+str(param)+"'"
+                else: #statsmodels
+                    lr=sm.ols(agg+'~'+'+'.join(v),data=df).fit()
+                    theta_l=lr.rsquared_adj
+                    param=Json(dict(lr.params))
+                    
                 if theta_l and theta_l>self.theta_l:
                     nonlocal valid_l_f
                     valid_l_f+=1
@@ -469,9 +501,9 @@ class PatternFinder:
 #                 make_reference=time()
 #                 temp=fd[oldIndex:index].copy()
 #                 self.time['make_reference']+=time()-make_reference
-                num_f+=1
                 n=index-oldIndex
-                if n>len(v)+1:
+                if n>=self.supp_l:
+                    num_f+=1
                     fit(fd[oldIndex:index],f,v,n)                       
                 oldIndex=index
             oldKey=tup
@@ -481,9 +513,9 @@ class PatternFinder:
 #             make_reference=time()
 #             temp=fd[oldIndex:].copy()
 #             self.time['make_reference']+=time()-make_reference
-            num_f+=1
             n=oldKey.Index-oldIndex
-            if n>len(v)+1:
+            if n>=self.supp_l:
+                num_f+=1
                 fit(fd[oldIndex:],f,v,n)
         self.time['innerloop']+=time()-inner_loop_start
         
@@ -492,14 +524,15 @@ class PatternFinder:
             self.conn.execute("INSERT INTO "+self.table+"_local values"+','.join(pattern))
             self.time['insertion']+=time()-insert_start
         
-        lamb_c=valid_c_f/num_f
-        lamb_l=valid_l_f/num_f
-        if lamb_c>self.lamb:
-            #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
-            self.glob.append(self.addGlobal(f,v,a,agg,'const',self.theta_c,lamb_c))
-        if lamb_l>self.lamb:
-            #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
-            self.glob.append(self.addGlobal(f,v,a,agg,'linear',self.theta_l,lamb_l))
+        if num_f>self.supp_g:
+            lamb_c=valid_c_f/num_f
+            lamb_l=valid_l_f/num_f
+            if lamb_c>self.lamb:
+                #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
+                self.glob.append(self.addGlobal(f,v,a,agg,'const',self.theta_c,lamb_c))
+            if lamb_l>self.lamb:
+                #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
+                self.glob.append(self.addGlobal(f,v,a,agg,'linear',self.theta_l,lamb_l))
                           
     def addLocal(self,f,f_val,v,a,agg,model,theta,describe,param):
         f="'"+str(f).replace("'","")+"'"
@@ -510,9 +543,8 @@ class PatternFinder:
         model="'"+model+"'"
         theta="'"+str(theta)+"'"
         describe="'"+str(describe).replace("'","")+"'"
-        param="'"+str(param)+"'"
         #return 'insert into '+self.table+'_local values('+','.join([f,f_val,v,a,agg,model,theta,describe,param])+');'
-        return '('+','.join([f,f_val,v,a,agg,model,theta,describe,param])+')'
+        return '('+','.join([f,f_val,v,a,agg,model,theta,describe,str(param)])+')'
     
     
     def addGlobal(self,f,v,a,agg,model,theta,lamb):
@@ -529,6 +561,11 @@ class PatternFinder:
     
     def createTable(self):
         self.conn.execute('DROP TABLE IF EXISTS '+self.table+'_local;')
+        if self.reg_package=='sklearn':
+            type='varchar'
+        else:
+            type='json'
+            
         self.conn.execute('create table IF NOT EXISTS '+self.table+'_local('+
                      'fixed varchar,'+
                      'fixed_value varchar,'+
@@ -538,7 +575,7 @@ class PatternFinder:
                      'model varchar,'+
                      'theta float,'+
                      'stats varchar,'+
-                     'param varchar);')
+                     'param '+type+');')
         
         self.conn.execute('DROP TABLE IF EXISTS '+self.table+'_global')
         self.conn.execute('create table IF NOT EXISTS '+self.table+'_global('+
