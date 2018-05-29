@@ -8,7 +8,6 @@ from numpy import percentile,mean
 from time import time
 from permtest import *
 from fd import closure
-from sqlalchemy.dialects.firebird.base import VARCHAR
 
 class PatternFinder:
     conn=None
@@ -128,93 +127,95 @@ class PatternFinder:
             ret=[self.validateFd(group,i) for i in range(1,n)] #division from 1 to n-1
             return ret
             
-    def findPattern(self):
+    def findPattern(self,user=None):
 #       self.pc=PC.PatternCollection(list(self.schema))
         self.createTable()
         start=time()
-        
-        for a in self.schema+['*']:
-            if a=='*':
-                aggList=["count"]
-            elif a in self.grouping_attr:
-                if a in self.num:
-                    aggList=["count","sum"]
-                else:
-                    aggList=["count"]
-            else:# for all unique in_a, ignore count and do count(*) instead
-                if a in self.num:
-                    aggList=["sum"]
-                else:
-                    continue
-            for agg in aggList:
-                cols=[col for col in self.grouping_attr if col!=a]
-                n=len(cols)
-                combs=combinations([i for i in range(n)],min(4,n))
-                for comb in combs:
-                    grouping=[cols[i] for i in comb]
-                    self.aggQuery(grouping,a,agg)
-                    perms=permutations(comb,len(comb))
-                    for perm in perms:
-                        
-                        #check if perm[0]->perm[1], if so, ignore whole group
-                        if perm[1] in closure(self.fd,self.n,[perm[0]]):
-                            continue
-                        
-                        decrease=0
-                        d_index=None
-                        division=None
-                        for i in range(1,len(perm)):
-                            if perm[i-1]>perm[i]:
-                                decrease+=1
-                                if decrease==1:
-                                    division=i #f=group[:divition],v=group[division:] is the only division
-                                elif decrease==2:
-                                    d_index=i #perm[:d_index] will decrease at most once
-                                    break
+        if not user:
+            grouping_attr=self.grouping_attr
+            aList=self.schema+['*']
             
-                        if not d_index:
-                            d_index=len(perm)
-                            pre=findpre(perm,d_index-1,n)#perm[:pre] are taken care of by other grouping
-                        else:
-                            pre=findpre(perm,d_index,n)
-                            
-                        if pre==d_index:
-                            continue
-                        else:
-                            group=tuple([cols[i] for i in perm])
-                            self.rollupQuery(group, pre, d_index, agg)
+        else:
+            grouping_attr=user['group']
+            aList=user['a']
+        
+        for a in aList:
+            if not user:
+                if a=='*':#For count, only do a count(*)
+                    agg="count"
+                elif a in self.num:
+                    agg="sum"
+            else:
+                agg=user['agg']
+            #for agg in aggList :
+            cols=[col for col in grouping_attr if col!=a]
+            n=len(cols)
+            combs=combinations([i for i in range(n)],min(4,n))
+            for comb in combs:
+                grouping=[cols[i] for i in comb]
+                self.aggQuery(grouping,a,agg)
+                perms=permutations(comb,len(comb))
+                for perm in perms:
+                    
+                    #check if perm[0]->perm[1], if so, ignore whole group
+                    if perm[1] in closure(self.fd,self.n,[perm[0]]):
+                        continue
+                    
+                    decrease=0
+                    d_index=None
+                    division=None
+                    for i in range(1,len(perm)):
+                        if perm[i-1]>perm[i]:
+                            decrease+=1
+                            if decrease==1:
+                                division=i #f=group[:divition],v=group[division:] is the only division
+                            elif decrease==2:
+                                d_index=i #perm[:d_index] will decrease at most once
+                                break
+        
+                    if not d_index:
+                        d_index=len(perm)
+                        pre=findpre(perm,d_index-1,n)#perm[:pre] are taken care of by other grouping
+                    else:
+                        pre=findpre(perm,d_index,n)
+                        
+                    if pre==d_index:
+                        continue
+                    else:
+                        group=tuple([cols[i] for i in perm])
+                        self.rollupQuery(group, pre, d_index, agg)
 
-                            prev_rows=None
-                            for j in range(pre,d_index+1):#first loop is to set prev_rows
-                                prefix=group[:j]
-                                condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
-                                                        for k in range(d_index)])
-                                cur_rows=pd.read_sql('SELECT count(*) as num FROM grouping WHERE '+condition,
-                                               con=self.conn)['num'][0]
-                                if prev_rows and (prev_rows>=cur_rows*self.dist_thre or 
-                                                  cur_rows>=self.num_rows*self.dist_thre):
-                                    d_index=j-1 #group[:j] will violate functional dependency rule
-                                    break
-                                prev_rows=cur_rows
+                        prev_rows=None
+                        for j in range(pre,d_index+1):#first loop is to set prev_rows
+                            prefix=group[:j]
+                            condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
+                                                    for k in range(d_index)])
+                            cur_rows=pd.read_sql('SELECT count(*) as num FROM grouping WHERE '+condition,
+                                           con=self.conn)['num'][0]
+                            if prev_rows and (prev_rows>=cur_rows*self.dist_thre or 
+                                              cur_rows>=self.num_rows*self.dist_thre):
+                                d_index=j-1 #group[:j] will violate functional dependency rule
+                                break
+                            prev_rows=cur_rows
+                            
+                        for j in range(d_index,pre,-1):
+                            prefix=group[:j]
+                            if division and division>=j:
+                                division=None
                                 
-                            for j in range(d_index,pre,-1):
-                                prefix=group[:j]
-                                if division and division>=j:
-                                    division=None
-                                    
-                                #check functional dependency here if division exists, otherwise check in fit
-                                if division and not self.validateFd(prefix,division):
-                                    continue
-                                
-                                condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
-                                                        for k in range(d_index)])
-                                df_start=time()                              
-                                df=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition,
-                                               con=self.conn)
-                                self.time['df']+=time()-df_start                                
-                                self.fitmodel(df,prefix,a,agg,division)
-                            self.dropRollup()
-                    self.dropAgg()    
+                            #check functional dependency here if division exists, otherwise check in fit
+                            if division and not self.validateFd(prefix,division):
+                                continue
+                            
+                            condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
+                                                    for k in range(d_index)])
+                            df_start=time()                              
+                            df=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition,
+                                           con=self.conn)
+                            self.time['df']+=time()-df_start                                
+                            self.fitmodel(df,prefix,a,agg,division)
+                        self.dropRollup()
+                self.dropAgg()    
         if self.glob:
             insert_start=time()
             self.conn.execute("INSERT INTO "+self.table+"_global values"+','.join(self.glob))
@@ -240,6 +241,10 @@ class PatternFinder:
 #     def dropCube(self):
 #         self.conn.execute("DROP TABLE cube;")
         
+    def findPattern_inline(self,group,a,agg):
+        #loop through permutations of group
+        user={'group':group,'a':[a],'agg':agg}
+        self.findPattern(user)
         
     def aggQuery(self, g, a, agg):
         start=time()
