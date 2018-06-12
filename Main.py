@@ -17,7 +17,7 @@ def main():
     
     p=PatternFinder(engine.connect(),'publication')
     #fd=[(['A'],['B']),(['A','B'],['C'])]
-    #p.setFd(fd)
+    #p.addFd(fd)
     p.findPattern()
     engine.dispose()
         

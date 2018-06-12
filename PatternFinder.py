@@ -26,12 +26,14 @@ class PatternFinder:
     fit=None #if we are fitting model
     dist_thre=None #threshold for identifying distinct-value attributes
     time=None #record running time for each section
-    fd={} #functional dependencies
+    fd=[] #functional dependencies
     glob=[] #global patterns
     num_rows=None #number of rows of self.table
     reg_package=None #statsmodels or sklearn
     supp_l=None #local support
     supp_g=None #global support
+    failedf=None #used to apply support inference
+    superkey=None #used to track compound key
     
     def __init__(self, conn, table, fit=True, theta_c=0.5, theta_l=0.5, lamb=0.5, dist_thre=0.99,
                  reg_package='statsmodels',supp_l=5,supp_g=5):
@@ -44,8 +46,9 @@ class PatternFinder:
         self.reg_package=reg_package
         self.supp_l=supp_l
         self.supp_g=supp_g
+        self.superkey=set()
         self.time={'aggregate':0,'df':0,'regression':0,'insertion':0,'drop':0,'loop':0,
-                   'innerloop':0,'get_attr':0,'make_reference':0,'itertuples':0,'total':0}
+                   'innerloop':0,'fd_detect':0,'check_fd':0,'total':0}
         
         try:
             self.table=table
@@ -80,9 +83,9 @@ class PatternFinder:
             except:
                 self.cat.append(col)
     
-    def setFd(self, fd):
+    def addFd(self, fd):
         '''
-        tyep fd:list of size-2 tuples, tuple[0]=list of lhs attributes and tuple[1]=list of rhs attributes
+        type fd:list of size-2 tuples, tuple[0]=list of lhs attributes and tuple[1]=list of rhs attributes
         '''
         for tup in fd:
             for i in range(2):
@@ -92,7 +95,7 @@ class PatternFinder:
                     except KeyError as ex:
                         print(str(ex)+" is not in the table")
                         raise ex
-        self.fd=fd
+        self.fd.extend(fd)
         
     def validateFd(self,group,division=None):
         '''
@@ -156,7 +159,7 @@ class PatternFinder:
                 self.aggQuery(grouping,a,agg)
                 perms=permutations(comb,len(comb))
                 for perm in perms:
-                    
+                    self.failedf=set()#reset failed f for each permutation
                     #check if perm[0]->perm[1], if so, ignore whole group
                     if perm[1] in closure(self.fd,self.n,[perm[0]]):
                         continue
@@ -184,36 +187,51 @@ class PatternFinder:
                     else:
                         group=tuple([cols[i] for i in perm])
                         self.rollupQuery(group, pre, d_index, agg)
-
+                        
+                        fd_detect_start=time()
                         prev_rows=None
                         for j in range(pre,d_index+1):#first loop is to set prev_rows
-                            prefix=group[:j]
                             condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
                                                     for k in range(d_index)])
                             cur_rows=pd.read_sql('SELECT count(*) as num FROM grouping WHERE '+condition,
                                            con=self.conn)['num'][0]
-                            if prev_rows and (prev_rows>=cur_rows*self.dist_thre or 
-                                              cur_rows>=self.num_rows*self.dist_thre):
-                                d_index=j-1 #group[:j] will violate functional dependency rule
-                                break
+                            if prev_rows:
+                                if cur_rows>=self.num_rows*self.dist_thre:
+                                    d_index=j-1 #group[:j] will be distinct value groups (superkey)
+                                    #self.addFd([group[:j-1],group[j-1]])
+                                    self.superkey.add(group[:j])
+                                    break
+                                elif prev_rows>=cur_rows*self.dist_thre:
+                                    d_index=j-1#group[:j-1] implies group[j-1]
+                                    self.addFd([(list(group[:j-1]),[group[j-1]])])
+                                    break
                             prev_rows=cur_rows
+                        self.time['fd_detect']+=time()-fd_detect_start
                             
                         for j in range(d_index,pre,-1):
                             prefix=group[:j]
-                            if division and division>=j:
-                                division=None
-                                
-                            #check functional dependency here if division exists, otherwise check in fit
-                            if division and not self.validateFd(prefix,division):
-                                continue
                             
-                            condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
-                                                    for k in range(d_index)])
-                            df_start=time()                              
-                            df=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition,
-                                           con=self.conn)
-                            self.time['df']+=time()-df_start                                
-                            self.fitmodel(df,prefix,a,agg,division)
+                            #check if group contains superkey
+                            for i in self.superkey:
+                                if set(prefix).issubset(i):
+                                    break
+                            else:# if contains superkey, go to next j
+                                if division and division>=j:
+                                    division=None
+                                    
+                                #check functional dependency here if division exists, otherwise check in fit
+                                check_fd_start=time()
+                                if division and not self.validateFd(prefix,division):
+                                    continue
+                                self.time['check_fd']+=time()-check_fd_start
+                                
+                                condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
+                                                        for k in range(d_index)])
+                                df_start=time()                              
+                                df=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition,
+                                               con=self.conn)
+                                self.time['df']+=time()-df_start                                
+                                self.fitmodel(df,prefix,a,agg,division)
                         self.dropRollup()
                 self.dropAgg()    
         if self.glob:
@@ -294,18 +312,22 @@ class PatternFinder:
         valid_c_f=[0]*size
         f=[list(group[:i]) for i in range(1,size+1)]
         v=[list(group[j:]) for j in range(1,size+1)]
+        supp_valid=[group[:i] in self.failedf for i in range(1,size+1)]
+        f_dict=[{} for i in range(1,size+1)]
+        check_fd_start=time()
         fd_valid=self.validateFd(group)
-        if not any(fd_valid):
+        self.time['check_fd']+=time()-check_fd_start
+        
+        if not any(fd_valid) or not any(supp_valid):
             return
         pattern=[]
-        def fit(df,i,n):
+        def fit(df,fval,i,n):
             if not self.fit:
                 return
             reg_start=time()
             describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
                       ,percentile(df[agg],50),percentile(df[agg],75)]
-            
-            fval=[getattr(oldKey,j) for j in f[i]]                    
+                                
             #fitting constant
             theta_c=chisquare(df[agg])[1]
             if theta_c>self.theta_c:
@@ -341,17 +363,15 @@ class PatternFinder:
             self.time['regression']+=time()-reg_start
             
         inner_loop_start=time()
-        iter_start=time()
+ 
         for tup in fd.itertuples():
-            self.time['itertuples']+=time()-iter_start
+            
             position=None
             if oldKey:
-                get_attr=time()
                 for i in range(size):
                     if getattr(tup,group[i])!=getattr(oldKey,group[i]):
                         position=i
-                        break
-                self.time['get_attr']+=time()-get_attr
+                        break 
             
             if position is not None:
                 index=tup.Index
@@ -359,30 +379,49 @@ class PatternFinder:
 #                     make_reference=time()
 #                     temp=fd[oldIndex[i]:index].copy()
 #                     self.time['make_reference']+=time()-make_reference
+                    if not fd_valid[i] or not supp_valid[i]:
+                        continue
                     n=index-oldIndex[i]
                     if n>=self.supp_l:
                         num_f[i]+=1
-                        if fd_valid[i]:
-                            fit(fd[oldIndex[i]:index],i,n)
+                        fval=tuple([getattr(oldKey,j) for j in f[i]])
+                        f_dict[i][fval]=[oldIndex[i],index]
+                        #fit(fd[oldIndex[i]:index],fval,i,n)
                     oldIndex[i]=index
                     
             oldKey=tup
-            iter_start=time()
             
         if oldKey:
             for i in range(size):
 #                 make_reference=time()
 #                 temp=fd[oldIndex[i]:].copy()
 #                 self.time['make_reference']+=time()-make_reference
-                n=oldKey.Index-oldIndex[i]
+                if not fd_valid[i] or not supp_valid[i]:
+                    continue
+                n=oldKey.Index-oldIndex[i]+1
                 if n>self.supp_l:
                     num_f[i]+=1
-                    if fd_valid[i]:
-                        fit(fd[oldIndex[i]:],i,n)
+                    fval=tuple([getattr(oldKey,j) for j in f[i]])
+                    f_dict[i][fval]=[oldIndex[i]]
+                    #fit(fd[oldIndex[i]:],fval,i,n)
         self.time['innerloop']+=time()-inner_loop_start
         
+        for i in range(size):
+            if len(f_dict[i])<self.supp_g:
+                self.failedf.add(tuple[f[i]])
+                supp_valid[i]=False
+            else:
+                for fval in f_dict[i]:
+                    indices=f_dict[i][fval]
+                    if len(indices)==2: #indices=[oldIndex,index]
+                        fit(fd[indices[0]:indices[1]],fval,i,indices[1]-indices[0])
+                    else: #indices=[oldIndex]
+                        fit(fd[indices[0]:],fval,i,oldKey.Index-indices[0]+1)
+                    
         #sifting global            
         for i in range(size):
+            if not fd_valid[i] or not supp_valid[i]:
+                    continue
             if num_f[i]>self.supp_g:
                 lamb_c=valid_c_f[i]/num_f[i]
                 lamb_l=valid_l_f[i]/num_f[i]
@@ -441,23 +480,27 @@ class PatternFinder:
             self.time['insertion']+=time()-insert_start
     def fitmodel_with_division(self, fd, group, a, agg, division): 
         #fd=d.sort_values(by=f).reset_index(drop=True)
+        
+        #check global support inference
+        if group[:division] in self.failedf:
+            return
+        
         oldKey=None
         oldIndex=0
         num_f=0
         valid_l_f=0
         valid_c_f=0
         f=list(group[:division])
-        v=list(group[division:])
+        v=list(group[division:])  
         #df:dataframe n:length    
         pattern=[]
-        def fit(df,f,v,n):
+        def fit(df,f,fval,v,n):
             if not self.fit:
                 return
             reg_start=time()
             describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
                                           ,percentile(df[agg],50),percentile(df[agg],75)]
-            
-            fval=[getattr(oldKey,j) for j in f]                    
+                                
             #fitting constant
             theta_c=chisquare(df[agg])[1]
             if theta_c>self.theta_c:
@@ -493,14 +536,11 @@ class PatternFinder:
             self.time['regression']+=time()-reg_start
         
         inner_loop_start=time()
-        iter_start=time()
         change=False
+        f_dict={}
         for tup in fd.itertuples():
-            self.time['itertuples']+=time()-iter_start
             if oldKey:
-                get_attr=time()
                 change=any([getattr(tup,attr)!=getattr(oldKey,attr) for attr in f])
-                self.time['get_attr']+=time()-get_attr
             if change:
                 index=tup.Index
 #                 make_reference=time()
@@ -509,20 +549,34 @@ class PatternFinder:
                 n=index-oldIndex
                 if n>=self.supp_l:
                     num_f+=1
-                    fit(fd[oldIndex:index],f,v,n)                       
+                    #fit(fd[oldIndex:index],f,v,n)
+                    fval=tuple([getattr(oldKey,j) for j in f])
+                    f_dict[fval]=[oldIndex,index]
                 oldIndex=index
             oldKey=tup
-            iter_start=time()
             
         if oldKey:
 #             make_reference=time()
 #             temp=fd[oldIndex:].copy()
 #             self.time['make_reference']+=time()-make_reference
-            n=oldKey.Index-oldIndex
+            n=oldKey.Index-oldIndex+1
             if n>=self.supp_l:
                 num_f+=1
-                fit(fd[oldIndex:],f,v,n)
+                #fit(fd[oldIndex:],f,v,n)
+                fval=tuple([getattr(oldKey,j) for j in f])
+                f_dict[fval]=[oldIndex]
         self.time['innerloop']+=time()-inner_loop_start
+        
+        if len(f_dict)<self.supp_g:
+            self.failedf.add(group[:division])
+            return
+        else:
+            for fval in f_dict:
+                indices=f_dict[fval]
+                if len(indices)==2: #indices=[oldIndex,index]
+                    fit(fd[indices[0]:indices[1]],f,fval,v,indices[1]-indices[0])
+                else: #indices=[oldIndex]
+                    fit(fd[indices[0]:],f,fval,v,oldKey.Index-indices[0]+1)
         
         if pattern:
             insert_start=time()
@@ -595,7 +649,7 @@ class PatternFinder:
         attr=''
         for key in self.time:
             attr+=key+' varchar,'
-        self.conn.execute('create table IF NOT EXISTS time_detail('+
+        self.conn.execute('create table IF NOT EXISTS time_detail_fd('+
                           'id serial primary key,'+
                           attr+
                           'description varchar);')
@@ -604,4 +658,4 @@ class PatternFinder:
     def insertTime(self):
         attributes=list(self.time)
         values=[str(self.time[i]) for i in attributes]
-        self.conn.execute('INSERT INTO time_detail('+','.join(attributes)+') values('+','.join(values)+')')
+        self.conn.execute('INSERT INTO time_detail_fd('+','.join(attributes)+') values('+','.join(values)+')')
