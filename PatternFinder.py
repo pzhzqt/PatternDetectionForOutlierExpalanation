@@ -132,6 +132,7 @@ class PatternFinder:
             
     def findPattern(self,user=None):
 #       self.pc=PC.PatternCollection(list(self.schema))
+        self.glob=[]
         self.createTable()
         start=time()
         if not user:
@@ -239,7 +240,7 @@ class PatternFinder:
             self.conn.execute("INSERT INTO "+self.table+"_global values"+','.join(self.glob))
             self.time['insertion']+=time()-insert_start
         self.time['total']=time()-start
-        self.insertTime()
+        self.insertTime(str(len(self.glob)))
         
         
 #     def formCube(self, a, agg, attr):
@@ -655,7 +656,9 @@ class PatternFinder:
                           'description varchar);')
         
         
-    def insertTime(self):
+    def insertTime(self,description):
         attributes=list(self.time)
         values=[str(self.time[i]) for i in attributes]
+        attributes.append('description')
+        values.append(description)
         self.conn.execute('INSERT INTO time_detail_fd('+','.join(attributes)+') values('+','.join(values)+')')
