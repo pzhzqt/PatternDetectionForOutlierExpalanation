@@ -5,7 +5,7 @@ def closure(fd,n,a):
     type n: length of all attributes
     type a: tuple/list/set of int
     '''
-    if not a:
+    if not a or not fd:
         return set()
     m=len(fd)
     c=[0]*m

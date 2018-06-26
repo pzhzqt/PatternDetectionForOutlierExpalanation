@@ -19,15 +19,15 @@ class PatternFinder:
     num=None #numeric attributes
     schema=None #list of all attributes
     n=None#number of attributes
-    attr_index={} #index of all attributes
+    attr_index=None #index of all attributes
     grouping_attr=None #attributes can be in group
     #c_star=False
     #pc=None
     fit=None #if we are fitting model
     dist_thre=None #threshold for identifying distinct-value attributes
     time=None #record running time for each section
-    fd=[] #functional dependencies
-    glob=[] #global patterns
+    fd=None #functional dependencies
+    glob=None #global patterns
     num_rows=None #number of rows of self.table
     reg_package=None #statsmodels or sklearn
     supp_l=None #local support
@@ -54,6 +54,8 @@ class PatternFinder:
         self.supp_g=supp_g
         self.superkey=set()
         self.fd_check=fd_check
+        if fd_check:
+            self.fd=[]
         self.supp_inf=supp_inf
         if algorithm not in {'naive','naive_alternative','optimized'}:
             print('Invalid input for algorithm, reset to default')
@@ -69,6 +71,8 @@ class PatternFinder:
             print(ex)
         
         self.n=len(self.schema)
+        
+        self.attr_index={}
         for i in range(self.n):
             self.attr_index[self.schema[i]]=i
         
@@ -122,6 +126,8 @@ class PatternFinder:
         if division=None, check all possible divisions, and return boolean[]
         '''
         if division:
+            if not self.fd:
+                return True
             f=set()# indices of fixed attributes
             attrs=set()# indices of all attributes
             for i in range(len(group)):
@@ -157,18 +163,18 @@ class PatternFinder:
             grouping_attr=user['group']
             aList=user['a']
         
-        for a in aList:
-            if not user:
-                if a=='*':#For count, only do a count(*)
-                    agg="count"
-                else: #a in self.num
-                    agg="sum"
-            else:
-                agg=user['agg']
-            #for agg in aggList :
-            cols=[col for col in grouping_attr if col!=a]
-            n=len(cols)
-            if self.algorithm=='naive':
+        if self.algorithm=='naive':
+            for a in aList:
+                if not user:
+                    if a=='*':#For count, only do a count(*)
+                        agg="count"
+                    else: #a in self.num
+                        agg="sum"
+                else:
+                    agg=user['agg']
+                #for agg in aggList :
+                cols=[col for col in grouping_attr if col!=a]
+                n=len(cols)
                 self.formCube(a, agg, cols)
                 for size in range(min(4,n),1,-1):
                     combs=combinations(cols,size)
@@ -178,95 +184,136 @@ class PatternFinder:
                             for f in fs:
                                 self.fit_naive(f,group,a,agg,cols)
                 self.dropCube()
-            else:#self.algorithm=='optimized' or self.algorithm=='naive_alternative'
-                combs=combinations([i for i in range(n)],min(4,n))
-                for comb in combs:
-                    grouping=[cols[i] for i in comb]
-                    self.aggQuery(grouping,a,agg)
-                    perms=permutations(comb,len(comb))
-                    for perm in perms:
-                        self.failedf=set()#reset failed f for each permutation
-                        #check if perm[0]->perm[1], if so, ignore whole group
-                        if perm[1] in closure(self.fd,self.n,[perm[0]]):
+        elif self.algorithm=='naive_alternative':
+            self.failedf=set()
+            for size in range(min(4,len(grouping_attr)),1,-1):
+                for group in combinations(grouping_attr,size):
+                    aggList=[]
+                    for a in aList:
+                        if a in group:
                             continue
+                        if a=='*':
+                            aggList.append('count(*)')
+                        else:
+                            aggList.append('sum('+a+')')
+                    if len(aggList)==0:
+                        continue
+                    self.aggQuery(group, aList)
+                    for fsize in range(size-1,0,-1):
+                        for f in combinations(group,fsize):
+                            df_start=time()
+                            df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(f),con=self.conn)
+                            self.time['df']+=time()-df_start
+                            grouping=tuple([fattr for fattr in f]+[vattr for vattr in group if vattr not in f])
+                            division=len(f)
+                            self.fitmodel(df, grouping, aggList, division)
+                    self.dropAgg()
+        else:#self.algorithm=='optimized'
+            cols=[col for col in grouping_attr]
+            n=len(cols)
+            if user:
+                up=n
+            else:#without user question, need to make sure some attribute is left out for aggregate
+                up=n-1
+            combs=combinations([i for i in range(n)],min(4,up))
+            for comb in combs:
+                grouping=[cols[i] for i in comb]
+                self.aggQuery(grouping, aList)
+                perms=permutations(comb,len(comb))
+                for perm in perms:
+                    self.failedf=set()#reset failed f for each permutation
+                    #check if perm[0]->perm[1], if so, ignore whole group
+                    if perm[1] in closure(self.fd,self.n,[perm[0]]):
+                        continue
+                    
+                    decrease=0
+                    d_index=None
+                    division=None
+                    for i in range(1,len(perm)):
+                        if perm[i-1]>perm[i]:
+                            decrease+=1
+                            if decrease==1:
+                                division=i #f=group[:divition],v=group[division:] is the only division
+                            elif decrease==2:
+                                d_index=i #perm[:d_index] will decrease at most once
+                                break
+        
+                    if not d_index:
+                        d_index=len(perm)
+                        pre=findpre(perm,d_index-1,n)#perm[:pre] are taken care of by other grouping
+                    else:
+                        pre=findpre(perm,d_index,n)
                         
-                        decrease=0
-                        d_index=None
-                        division=None
-                        for i in range(1,len(perm)):
-                            if perm[i-1]>perm[i]:
-                                decrease+=1
-                                if decrease==1:
-                                    division=i #f=group[:divition],v=group[division:] is the only division
-                                elif decrease==2:
-                                    d_index=i #perm[:d_index] will decrease at most once
-                                    break
-            
-                        if not d_index:
-                            d_index=len(perm)
-                            pre=findpre(perm,d_index-1,n)#perm[:pre] are taken care of by other grouping
-                        else:
-                            pre=findpre(perm,d_index,n)
-                            
-                        if pre==d_index:
-                            continue
-                        else:
-                            group=tuple([cols[i] for i in perm])
-                            self.rollupQuery(group, pre, d_index, agg)
-                            
-                            fd_detect_start=time()
-                            if self.fd_check==True:
-                                prev_rows=None
-                                for j in range(pre,d_index+1):#first loop is to set prev_rows
-                                    condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
-                                                            for k in range(d_index)])
-                                    cur_rows=pd.read_sql('SELECT count(*) as num FROM grouping WHERE '+condition,
-                                                   con=self.conn)['num'][0]
-                                    if prev_rows:
-                                        if cur_rows>=self.num_rows*self.dist_thre:
-                                            d_index=j-1 #group[:j] will be distinct value groups (superkey)
-                                            #self.addFd([group[:j-1],group[j-1]])
-                                            self.superkey.add(group[:j])
-                                            break
-                                        elif prev_rows>=cur_rows*self.dist_thre:
-                                            d_index=j-1#group[:j-1] implies group[j-1]
-                                            self.addFd([(list(group[:j-1]),[group[j-1]])])
-                                            break
-                                    prev_rows=cur_rows
-                            self.time['fd_detect']+=time()-fd_detect_start
+                    if pre==d_index:
+                        continue
+                    else:
+                        group=tuple([cols[i] for i in perm])
+                        
+                        aggList=[]
+                        for a in aList:
+                            if a in grouping:
+                                continue
+                            if a=='*':
+                                aggList.append('count(*)')
+                            else:
+                                aggList.append('sum('+a+')')
                                 
-                            for j in range(d_index,pre,-1):
-                                prefix=group[:j]
-                                
-                                #check if group contains superkey
-                                for i in self.superkey:
-                                    if set(prefix).issubset(i):
+                        self.rollupQuery(group, pre, d_index, aggList)
+                        group_size=d_index#d_index might change
+                        fd_detect_start=time()
+                        if self.fd_check:
+                            prev_rows=None
+                            for j in range(pre,d_index+1):#first loop is to set prev_rows
+                                condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
+                                                        for k in range(d_index)])
+                                cur_rows=pd.read_sql('SELECT count(*) as num FROM grouping WHERE '+condition,
+                                               con=self.conn)['num'][0]
+                                if prev_rows:
+                                    if cur_rows>=self.num_rows*self.dist_thre:
+                                        d_index=j-1 #group[:j] will be distinct value groups (superkey)
+                                        #self.addFd([group[:j-1],group[j-1]])
+                                        self.superkey.add(group[:j])
                                         break
-                                else:# if contains superkey, go to next j
-                                    if division and division>=j:
-                                        division=None
-                                        
-                                    #check functional dependency here if division exists, otherwise check in fit
-                                    check_fd_start=time()
-                                    if division and not self.validateFd(prefix,division):
-                                        continue
-                                    self.time['check_fd']+=time()-check_fd_start
+                                    elif prev_rows>=cur_rows*self.dist_thre:
+                                        d_index=j-1#group[:j-1] implies group[j-1]
+                                        self.addFd([(list(group[:j-1]),[group[j-1]])])
+                                        break
+                                prev_rows=cur_rows
+                        self.time['fd_detect']+=time()-fd_detect_start
+                            
+                        for j in range(d_index,pre,-1):
+                            prefix=group[:j]
+                            
+                            #check if group contains superkey
+                            for i in self.superkey:
+                                if set(prefix).issubset(i):
+                                    break
+                            else:# if contains superkey, go to next j
+                                if division and division>=j:
+                                    division=None
                                     
-                                    condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
-                                                            for k in range(d_index)])
-                                    df_start=time()                              
-                                    df=pd.read_sql('SELECT '+','.join(prefix)+','+agg+' FROM grouping WHERE '+condition,
-                                                   con=self.conn)
-                                    self.time['df']+=time()-df_start                                
-                                    self.fitmodel(df,prefix,a,agg,division)
-                            self.dropRollup()
-                    self.dropAgg()    
+                                #check functional dependency here if division exists, otherwise check in fit
+                                check_fd_start=time()
+                                if division and not self.validateFd(prefix,division):
+                                    continue
+                                self.time['check_fd']+=time()-check_fd_start
+                                
+                                condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
+                                                        for k in range(group_size)])
+                                df_start=time()
+                                agg=['\"'+func+'\"' for func in aggList]                              
+                                df=pd.read_sql('SELECT '+','.join(prefix)+','+','.join(agg)+' FROM grouping WHERE '+condition,
+                                               con=self.conn)
+                                self.time['df']+=time()-df_start                                
+                                self.fitmodel(df,prefix,aggList,division)
+                        self.dropRollup()
+                self.dropAgg()    
         if self.glob:
             insert_start=time()
-            self.conn.execute("INSERT INTO "+self.table+"_global values"+','.join(self.glob))
+            self.conn.execute("INSERT INTO revised."+self.table+"_global values"+','.join(self.glob))
             self.time['insertion']+=time()-insert_start
         self.time['total']=time()-start
-        self.insertTime(str(len(self.glob)))
+        self.insertTime('\''+self.table+'_num_global:'+str(len(self.glob))+'\'')
         
         
     def formCube(self, a, agg, attr):
@@ -276,9 +323,11 @@ class PatternFinder:
                         for num in attr if num in self.num]+
             [cat+", GROUPING("+cat+") as g_"+cat for cat in attr if cat not in self.num])
         if a in self.num:
-            a="CAST("+a+" AS NUMERIC)"
+            qa="CAST("+a+" AS NUMERIC)"
+        else:
+            qa=a
         self.conn.execute("DROP TABLE IF EXISTS cube")
-        query="CREATE TABLE cube AS SELECT "+agg+"("+a+"), "+grouping+" FROM "+self.table+" GROUP BY CUBE("+group+")"
+        query="CREATE TABLE cube AS SELECT "+agg+"("+qa+") AS \""+agg+'('+a+")\", "+grouping+" FROM "+self.table+" GROUP BY CUBE("+group+")"
         self.conn.execute(query)        
      
     def dropCube(self):
@@ -302,28 +351,35 @@ class PatternFinder:
         fd=pd.read_sql(self.cubeQuery(group, f, cols),self.conn)
         g=tuple([att for att in f]+[attr for attr in group if attr not in f])
         division=len(f)
-        self.fitmodel_with_division(fd, g, a, agg, division)
+        self.fitmodel_with_division(fd, g, [agg+'('+a+')'], division)
         
     def findPattern_inline(self,group,a,agg):
         #loop through permutations of group
         user={'group':group,'a':[a],'agg':agg}
         self.findPattern(user)
         
-    def aggQuery(self, g, a, agg):
+    def aggQuery(self, g, aList):
         start=time()
         group=",".join(["CAST("+att+" AS NUMERIC)" if att in self.num else att for att in g])
-        if agg=='sum':
-            a='CAST('+a+' AS NUMERIC)'
-        query="CREATE TEMP TABLE agg as SELECT "+group+","+agg+"("+a+")"+" FROM "+self.table+" GROUP BY "+group
+        agg=[]
+        for a in aList:
+            if a in g:
+                continue
+            if a=='*':
+                agg.append('count(*) AS \"count(*)\"')
+            else:
+                agg.append('sum(CAST('+a+' AS NUMERIC)) AS \"sum('+a+')\"')
+        query="CREATE TEMP TABLE agg as SELECT "+group+","+','.join(agg)+" FROM "+self.table+" GROUP BY "+group
         self.conn.execute(query)
         self.time['aggregate']+=time()-start
     
-    def rollupQuery(self, group, pre, d_index, agg):
+    def rollupQuery(self, group, pre, d_index, aggList):
         start=time()
         grouping=",".join([attr+", GROUPING("+attr+") as g_"+attr for attr in group[:d_index]])
 #        gsets=','.join(['('+','.join(group[:prefix])+')' for prefix in range(d_index,pre,-1)])
+        agg=['SUM(\"'+func+'\") AS '+'\"'+func+'\"' for func in aggList]
         self.conn.execute('CREATE TEMP TABLE grouping AS '+
-                        'SELECT '+grouping+', SUM('+agg+') as '+agg+
+                        'SELECT '+grouping+','+','.join(agg)+
 #                        ' FROM agg GROUP BY GROUPING SETS('+gsets+')'+
                         ' FROM agg GROUP BY ROLLUP('+','.join(group)+')'+
                         ' ORDER BY '+','.join(group[:d_index]))
@@ -339,21 +395,21 @@ class PatternFinder:
         self.conn.execute('DROP TABLE agg')
         self.time['drop']+=time()-drop_start
         
-    def fitmodel(self, fd, group, a, agg, division):
+    def fitmodel(self, fd, group, aggList, division):
         loop_start=time()
         if division:
-            self.fitmodel_with_division(fd, group, a, agg, division)
+            self.fitmodel_with_division(fd, group, aggList, division)
         else:
-            self.fitmodel_no_division(fd, group, a, agg)
+            self.fitmodel_no_division(fd, group, aggList)
         self.time['loop']+=time()-loop_start
             
-    def fitmodel_no_division(self, fd, group, a, agg):
+    def fitmodel_no_division(self, fd, group, aggList):
         size=len(group)-1
         oldKey=None
         oldIndex=[0]*size
-        num_f=[0]*size
-        valid_l_f=[0]*size
-        valid_c_f=[0]*size
+        num_f=[0]*size #fixed value number that satisfy support threshold
+        valid_l_f=[{} for i in range(size)] #empty list to store valid fixed value number
+        valid_c_f=[{} for i in range(size)]
         f=[list(group[:i]) for i in range(1,size+1)]
         v=[list(group[j:]) for j in range(1,size+1)]
         supp_valid=[group[:i] not in self.failedf for i in range(1,size+1)]
@@ -369,40 +425,47 @@ class PatternFinder:
             if not self.fit:
                 return
             reg_start=time()
-            describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
-                      ,percentile(df[agg],50),percentile(df[agg],75)]
-                                
-            #fitting constant
-            theta_c=chisquare(df[agg])[1]
-            if theta_c>self.theta_c:
-                nonlocal valid_c_f
-                valid_c_f[i]+=1
-                #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                pattern.append(self.addLocal(f[i],fval,v[i],a,agg,'const',theta_c,describe,'NULL'))
-              
-            #fitting linear
-            if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v[i])
-                                or
-                                (self.reg_package=='statsmodels' and any(attr in self.num for attr in v[i])))):
-
-                if self.reg_package=='sklearn':   
-                    lr=LinearRegression()
-                    lr.fit(df[v[i]],df[agg])
-                    theta_l=lr.score(df[v[i]],df[agg])
-                    theta_l=1-(1-theta_l)*(n-1)/(n-len(v[i])-1)
-                    param=lr.coef_.tolist()
-                    param.append(lr.intercept_.tolist())
-                    param="'"+str(param)+"'"
-                else: #statsmodels
-                    lr=sm.ols(agg+'~'+'+'.join(v[i]),data=df,missing='drop').fit()
-                    theta_l=lr.rsquared_adj
-                    param=Json(dict(lr.params))
-                
-                if theta_l and theta_l>self.theta_l:
-                    nonlocal valid_l_f
-                    valid_l_f[i]+=1
-                #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                    pattern.append(self.addLocal(f[i],fval,v[i],a,agg,'linear',theta_l,describe,param))
+            for agg in aggList:
+                describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
+                          ,percentile(df[agg],50),percentile(df[agg],75)]
+                                    
+                #fitting constant
+                theta_c=chisquare(df[agg].dropna())[1]
+                if theta_c>self.theta_c:
+                    nonlocal valid_c_f
+                    try:
+                        valid_c_f[i][agg]+=1
+                    except KeyError:
+                        valid_c_f[i][agg]=1
+                    #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                    pattern.append(self.addLocal(f[i],fval,v[i],agg,'const',theta_c,describe,'NULL'))
+                  
+                #fitting linear
+                if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v[i])
+                                    or
+                                    (self.reg_package=='statsmodels' and all(attr in self.num for attr in v[i])))):
+    
+                    if self.reg_package=='sklearn':   
+                        lr=LinearRegression()
+                        lr.fit(df[v[i]],df[agg])
+                        theta_l=lr.score(df[v[i]],df[agg])
+                        theta_l=1-(1-theta_l)*(n-1)/(n-len(v[i])-1)
+                        param=lr.coef_.tolist()
+                        param.append(lr.intercept_.tolist())
+                        param="'"+str(param)+"'"
+                    else: #statsmodels
+                        lr=sm.ols(agg+'~'+'+'.join(v[i]),data=df,missing='drop').fit()
+                        theta_l=lr.rsquared_adj
+                        param=Json(dict(lr.params))
+                    
+                    if theta_l and theta_l>self.theta_l:
+                        nonlocal valid_l_f
+                        try:
+                            valid_c_f[i][agg]+=1
+                        except KeyError:
+                            valid_c_f[i][agg]=1
+                    #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                        pattern.append(self.addLocal(f[i],fval,v[i],agg,'linear',theta_l,describe,param))
                     
             self.time['regression']+=time()-reg_start
             
@@ -443,7 +506,7 @@ class PatternFinder:
                 if not fd_valid[i] or not supp_valid[i]:
                     continue
                 n=oldKey.Index-oldIndex[i]+1
-                if n>self.supp_l:
+                if n>=self.supp_l:
                     num_f[i]+=1
                     fval=tuple([getattr(oldKey,j) for j in f[i]])
                     f_dict[i][fval]=[oldIndex[i]]
@@ -467,15 +530,17 @@ class PatternFinder:
         for i in range(size):
             if not fd_valid[i] or not supp_valid[i]:
                     continue
-            if num_f[i]>self.supp_g:
-                lamb_c=valid_c_f[i]/num_f[i]
-                lamb_l=valid_l_f[i]/num_f[i]
+            for agg in valid_c_f[i]:
+                lamb_c=valid_c_f[i][agg]/num_f[i]
                 if lamb_c>self.lamb:
                     #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
-                    self.glob.append(self.addGlobal(f[i],v[i],a,agg,'const',self.theta_c,lamb_c))
+                    self.glob.append(self.addGlobal(f[i],v[i],agg,'const',self.theta_c,lamb_c))
+            
+            for agg in valid_l_f[i]:
+                lamb_l=valid_l_f[i][agg]/num_f[i]
                 if lamb_l>self.lamb:
                     #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
-                    self.glob.append(self.addGlobal(f[i],v[i],a,agg,'linear',self.theta_l,lamb_l))
+                    self.glob.append(self.addGlobal(f[i],v[i],agg,'linear',self.theta_l,lamb_l))
         
         if not self.fit:
             return 
@@ -523,9 +588,9 @@ class PatternFinder:
         
         if pattern:
             insert_start=time()
-            self.conn.execute("INSERT INTO "+self.table+"_local values"+','.join(pattern))        
+            self.conn.execute("INSERT INTO revised."+self.table+"_local values"+','.join(pattern))        
             self.time['insertion']+=time()-insert_start
-    def fitmodel_with_division(self, fd, group, a, agg, division): 
+    def fitmodel_with_division(self, fd, group, aggList, division): 
         #fd=d.sort_values(by=f).reset_index(drop=True)
         
         #check global support inference
@@ -535,8 +600,8 @@ class PatternFinder:
         oldKey=None
         oldIndex=0
         num_f=0
-        valid_l_f=0
-        valid_c_f=0
+        valid_l_f={}
+        valid_c_f={}
         f=list(group[:division])
         v=list(group[division:])  
         #df:dataframe n:length    
@@ -545,41 +610,48 @@ class PatternFinder:
             if not self.fit:
                 return
             reg_start=time()
-            describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
-                                          ,percentile(df[agg],50),percentile(df[agg],75)]
-                                
-            #fitting constant
-            theta_c=chisquare(df[agg])[1]
-            if theta_c>self.theta_c:
-                nonlocal valid_c_f
-                valid_c_f+=1
-                #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                pattern.append(self.addLocal(f,fval,v,a,agg,'const',theta_c,describe,'NULL'))
-                
-            #fitting linear
-            if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v)
-                                or
-                                (self.reg_package=='statsmodels' and any(attr in self.num for attr in v)))):
-
-                if self.reg_package=='sklearn': 
-                    lr=LinearRegression()
-                    lr.fit(df[v],df[agg])
-                    theta_l=lr.score(df[v],df[agg])
-                    theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
-                    param=lr.coef_.tolist()
-                    param.append(lr.intercept_.tolist())
-                    param="'"+str(param)+"'"
-                else: #statsmodels
-                    lr=sm.ols(agg+'~'+'+'.join(v),data=df,missing='drop').fit()
-                    theta_l=lr.rsquared_adj
-                    param=Json(dict(lr.params))
+            for agg in aggList:
+                describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
+                                              ,percentile(df[agg],50),percentile(df[agg],75)]
+                                    
+                #fitting constant
+                theta_c=chisquare(df[agg].dropna())[1]
+                if theta_c>self.theta_c:
+                    nonlocal valid_c_f
+                    try:
+                        valid_c_f[agg]+=1
+                    except KeyError:
+                        valid_c_f[agg]=1
+                    #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                    pattern.append(self.addLocal(f,fval,v,agg,'const',theta_c,describe,'NULL'))
                     
-                if theta_l and theta_l>self.theta_l:
-                    nonlocal valid_l_f
-                    valid_l_f+=1
-                #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                    pattern.append(self.addLocal(f,fval,v,a,agg,'linear',theta_l,describe,param))
-                    
+                #fitting linear
+                if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v)
+                                    or
+                                    (self.reg_package=='statsmodels' and all(attr in self.num for attr in v)))):
+    
+                    if self.reg_package=='sklearn': 
+                        lr=LinearRegression()
+                        lr.fit(df[v],df[agg])
+                        theta_l=lr.score(df[v],df[agg])
+                        theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
+                        param=lr.coef_.tolist()
+                        param.append(lr.intercept_.tolist())
+                        param="'"+str(param)+"'"
+                    else: #statsmodels
+                        lr=sm.ols(agg+'~'+'+'.join(v),data=df,missing='drop').fit()
+                        theta_l=lr.rsquared_adj
+                        param=Json(dict(lr.params))
+                        
+                    if theta_l and theta_l>self.theta_l:
+                        nonlocal valid_l_f
+                        try:
+                            valid_c_f[agg]+=1
+                        except KeyError:
+                            valid_c_f[agg]=1
+                    #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                        pattern.append(self.addLocal(f,fval,v,agg,'linear',theta_l,describe,param))
+                        
             self.time['regression']+=time()-reg_start
         
         inner_loop_start=time()
@@ -628,67 +700,67 @@ class PatternFinder:
         
         if pattern:
             insert_start=time()
-            self.conn.execute("INSERT INTO "+self.table+"_local values"+','.join(pattern))
+            self.conn.execute("INSERT INTO revised."+self.table+"_local values"+','.join(pattern))
             self.time['insertion']+=time()-insert_start
         
-        if num_f>self.supp_g:
-            lamb_c=valid_c_f/num_f
-            lamb_l=valid_l_f/num_f
+        for agg in valid_c_f:
+            lamb_c=valid_c_f[agg]/num_f
             if lamb_c>self.lamb:
                 #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
-                self.glob.append(self.addGlobal(f,v,a,agg,'const',self.theta_c,lamb_c))
+                self.glob.append(self.addGlobal(f,v,agg,'const',self.theta_c,lamb_c))
+                
+        for agg in valid_l_f:
+            lamb_l=valid_l_f/num_f
             if lamb_l>self.lamb:
                 #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
-                self.glob.append(self.addGlobal(f,v,a,agg,'linear',self.theta_l,lamb_l))
+                self.glob.append(self.addGlobal(f,v,agg,'linear',self.theta_l,lamb_l))
                           
-    def addLocal(self,f,f_val,v,a,agg,model,theta,describe,param):
+    def addLocal(self,f,f_val,v,agg,model,theta,describe,param):#left here
         f="'"+str(f).replace("'","")+"'"
         f_val="'"+str(f_val).replace("'","")+"'"
         v="'"+str(v).replace("'","")+"'"
-        a="'"+a+"'"
         agg="'"+agg+"'"
         model="'"+model+"'"
         theta="'"+str(theta)+"'"
         describe="'"+str(describe).replace("'","")+"'"
         #return 'insert into '+self.table+'_local values('+','.join([f,f_val,v,a,agg,model,theta,describe,param])+');'
-        return '('+','.join([f,f_val,v,a,agg,model,theta,describe,str(param)])+')'
+        return '('+','.join([f,f_val,v,agg,model,theta,describe,str(param)])+')'
     
     
-    def addGlobal(self,f,v,a,agg,model,theta,lamb):
+    def addGlobal(self,f,v,agg,model,theta,lamb):
         f="'"+str(f).replace("'","")+"'"
         v="'"+str(v).replace("'","")+"'"
-        a="'"+a+"'"
         agg="'"+agg+"'"
         model="'"+model+"'"
         theta="'"+str(theta)+"'"
         lamb="'"+str(lamb)+"'"
         #return 'insert into '+self.table+'_global values('+','.join([f,v,a,agg,model,theta,lamb])+');'
-        return '('+','.join([f,v,a,agg,model,theta,lamb])+')'
+        return '('+','.join([f,v,agg,model,theta,lamb])+')'
          
     
     def createTable(self):
-        self.conn.execute('DROP TABLE IF EXISTS '+self.table+'_local;')
         if self.reg_package=='sklearn':
             type='varchar'
         else:
             type='json'
-            
-        self.conn.execute('create table IF NOT EXISTS '+self.table+'_local('+
+        
+        self.conn.execute('CREATE SCHEMA IF NOT EXISTS revised')
+        
+        self.conn.execute('DROP TABLE IF EXISTS revised.'+self.table+'_local;')    
+        self.conn.execute('create table IF NOT EXISTS revised.'+self.table+'_local('+
                      'fixed varchar,'+
                      'fixed_value varchar,'+
                      'variable varchar,'+
-                     'in_a varchar,'+
                      'agg varchar,'+
                      'model varchar,'+
                      'theta float,'+
                      'stats varchar,'+
                      'param '+type+');')
         
-        self.conn.execute('DROP TABLE IF EXISTS '+self.table+'_global')
-        self.conn.execute('create table IF NOT EXISTS '+self.table+'_global('+
+        self.conn.execute('DROP TABLE IF EXISTS revised.'+self.table+'_global')
+        self.conn.execute('create table IF NOT EXISTS revised.'+self.table+'_global('+
                      'fixed varchar,'+
                      'variable varchar,'+
-                     'in_a varchar,'+
                      'agg varchar,'+
                      'model varchar,'+
                      'theta float,'+
