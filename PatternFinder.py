@@ -777,9 +777,9 @@ class PatternFinder:
 #         f="'"+str(f).replace("'","")+"'"
 #         f_val="'"+str(f_val).replace("'","")+"'"
 #         v="'"+str(v).replace("'","")+"'"
-        f='ARRAY'+str(list(f))
-        f_val='ARRAY'+str([str(val) for val in f_val])
-        v='ARRAY'+str(list(v))
+        f='ARRAY'+str(list(f)).replace('"','')
+        f_val='ARRAY'+str([str(val) for val in f_val]).replace('"','')
+        v='ARRAY'+str(list(v)).replace('"','')
         agg="'"+agg+"'"
         model="'"+model+"'"
         theta="'"+str(theta)+"'"
@@ -791,8 +791,8 @@ class PatternFinder:
     def addGlobal(self,f,v,agg,model,theta,lamb):
 #         f="'"+str(f).replace("'","")+"'"
 #         v="'"+str(v).replace("'","")+"'"
-        f='ARRAY'+str(list(f))
-        v='ARRAY'+str(list(v))
+        f='ARRAY'+str(list(f)).replace('"','')
+        v='ARRAY'+str(list(v)).replace('"','')
         agg="'"+agg+"'"
         model="'"+model+"'"
         theta="'"+str(theta)+"'"
