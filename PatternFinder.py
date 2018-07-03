@@ -519,9 +519,9 @@ class PatternFinder:
                     if theta_l and theta_l>self.theta_l:
                         nonlocal valid_l_f
                         try:
-                            valid_c_f[i][agg]+=1
+                            valid_l_f[i][agg]+=1
                         except KeyError:
-                            valid_c_f[i][agg]=1
+                            valid_l_f[i][agg]=1
                     #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
                         pattern.append(self.addLocal(f[i],fval,v[i],agg,'linear',theta_l,describe,param))
                     
@@ -704,9 +704,9 @@ class PatternFinder:
                     if theta_l and theta_l>self.theta_l:
                         nonlocal valid_l_f
                         try:
-                            valid_c_f[agg]+=1
+                            valid_l_f[agg]+=1
                         except KeyError:
-                            valid_c_f[agg]=1
+                            valid_l_f[agg]=1
                     #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
                         pattern.append(self.addLocal(f,fval,v,agg,'linear',theta_l,describe,param))
                         
