@@ -16,7 +16,7 @@ def main():
         sys.exit(1)
     
     p=PatternFinder(engine.connect(),table='crime_exp_8',fit=True,reg_package='sklearn',
-                    supp_l=15,supp_g=15,fd_check=False,supp_inf=False,algorithm='optimized')
+                    supp_l=15,supp_g=15,fd_check=False,supp_inf=False,algorithm='test')
     #fd=[(['A'],['B']),(['A','B'],['C'])]
     #p.addFd(fd)
     p.findPattern()

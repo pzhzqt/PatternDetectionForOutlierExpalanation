@@ -37,9 +37,11 @@ class PatternFinder:
     fd_check=None #toggle on/off functional dependency checks
     supp_inf=None #toggle on/off support inference rules
     algorithm=None #{'optimized','naive','naive_alternative'}
+    pattern_schema=None #schema for storing pattern
     
     def __init__(self, conn, table, fit=True, theta_c=0.5, theta_l=0.5, lamb=0.5, dist_thre=0.99,
-                 reg_package='statsmodels',supp_l=10,supp_g=100,fd_check=True,supp_inf=True,algorithm='optimized'):
+                 reg_package='sklearn',supp_l=15,supp_g=15,fd_check=False,supp_inf=False,algorithm='test',
+                 pattern_schema='pub'):
         self.conn=conn
         self.theta_c=theta_c
         self.theta_l=theta_l
@@ -48,10 +50,11 @@ class PatternFinder:
         self.dist_thre=dist_thre
         if reg_package not in {'statsmodels','sklearn'}:
             print('Invalid input for reg_package, reset to default')
-            reg_package='statsmodels'
+            reg_package='sklearn'
         self.reg_package=reg_package
         self.supp_l=supp_l
         self.supp_g=supp_g
+        self.pattern_schema=pattern_schema
         self.superkey=set()
         self.fd_check=fd_check
         if fd_check:
@@ -153,7 +156,7 @@ class PatternFinder:
     def findPattern(self,user=None):
 #       self.pc=PC.PatternCollection(list(self.schema))
         self.glob=[]#reset self.glob
-        self.createTable()
+        self.createTable(self.pattern_schema)
         start=time()
         if not user:
             grouping_attr=self.grouping_attr
@@ -361,7 +364,7 @@ class PatternFinder:
             self.conn.execute("INSERT INTO revised."+self.table+"_global values"+','.join(self.glob))
             self.time['insertion']+=time()-insert_start
         self.time['total']=time()-start
-        self.insertTime('\''+self.table+'_num_global:'+str(len(self.glob))+'\'')
+        self.insertTime('\''+self.table+'_num_global:'+str(len(self.glob))+' algo:'+self.algorithm+'\'')
         
         
     def formCube(self, a, agg, attr):
@@ -798,16 +801,16 @@ class PatternFinder:
         return '('+','.join([f,v,agg,model,theta,lamb])+')'
          
     
-    def createTable(self):
+    def createTable(self,pattern_schema):
         if self.reg_package=='sklearn':
             type='varchar'
         else:
             type='json'
         
-        self.conn.execute('CREATE SCHEMA IF NOT EXISTS revised')
+        self.conn.execute('CREATE SCHEMA IF NOT EXISTS '+pattern_schema)
         
-        self.conn.execute('DROP TABLE IF EXISTS revised.'+self.table+'_local;')    
-        self.conn.execute('create table IF NOT EXISTS revised.'+self.table+'_local('+
+        self.conn.execute('DROP TABLE IF EXISTS '+pattern_schema+'.'+self.table+'_local;')    
+        self.conn.execute('create table IF NOT EXISTS '+pattern_schema+'.'+self.table+'_local('+
                      'fixed varchar[],'+
                      'fixed_value varchar[],'+
                      'variable varchar[],'+
@@ -817,8 +820,8 @@ class PatternFinder:
                      'stats varchar,'+
                      'param '+type+');')
         
-        self.conn.execute('DROP TABLE IF EXISTS revised.'+self.table+'_global')
-        self.conn.execute('create table IF NOT EXISTS revised.'+self.table+'_global('+
+        self.conn.execute('DROP TABLE IF EXISTS '+pattern_schema+'.'+self.table+'_global')
+        self.conn.execute('create table IF NOT EXISTS '+pattern_schema+'.'+self.table+'_global('+
                      'fixed varchar[],'+
                      'variable varchar[],'+
                      'agg varchar,'+
