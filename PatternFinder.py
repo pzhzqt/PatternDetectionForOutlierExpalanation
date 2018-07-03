@@ -57,9 +57,9 @@ class PatternFinder:
         if fd_check:
             self.fd=[]
         self.supp_inf=supp_inf
-        if algorithm not in {'naive','naive_alternative','optimized'}:
+        if algorithm not in {'naive','naive_alternative','optimized','test'}:
             print('Invalid input for algorithm, reset to default')
-            algorithm='optimized'
+            algorithm='naive_alternative'
         self.algorithm=algorithm
         self.time={'aggregate':0,'df':0,'regression':0,'insertion':0,'drop':0,'loop':0,
                    'innerloop':0,'fd_detect':0,'check_fd':0,'total':0}
@@ -184,9 +184,9 @@ class PatternFinder:
                             for f in fs:
                                 self.fit_naive(f,group,a,agg,cols)
                 self.dropCube()
-        elif self.algorithm=='naive_alternative':
+        elif self.algorithm=='naive_alternative' or self.algorithm=='test':
             self.failedf=set()
-            for size in range(min(4,len(grouping_attr)),1,-1):
+            for size in range(2,min(4,len(grouping_attr))+1):
                 for group in combinations(grouping_attr,size):
                     aggList=[]
                     for a in aList:
@@ -199,18 +199,50 @@ class PatternFinder:
                     if len(aggList)==0:
                         continue
                     self.aggQuery(group, aList)
-                    for fsize in range(size-1,0,-1):
-                        for f in combinations(group,fsize):
+                    if self.algorithm=='naive_alternative':
+                        for fsize in range(size-1,0,-1):
+                            for f in combinations(group,fsize):
+                                df_start=time()
+                                df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(f),con=self.conn)
+                                self.time['df']+=time()-df_start
+                                grouping=tuple([fattr for fattr in f]+[vattr for vattr in group if vattr not in f])
+                                division=len(f)
+                                self.fitmodel(df, grouping, aggList, division)
+                    else:#algorithm=='test'
+                        if self.fd_check:
+                            cur_rows=pd.read_sql('SELECT count(*) as num FROM agg',con=self.conn)['num'][0]
+                            if cur_rows>=self.num_rows*self.dist_thre:
+                                self.superkey.add(group)
+                        for i in range(len(group)):
+                            perm=group[i:]+group[:i]
                             df_start=time()
-                            df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(f),con=self.conn)
+                            df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(perm[:-1]),con=self.conn)
                             self.time['df']+=time()-df_start
-                            grouping=tuple([fattr for fattr in f]+[vattr for vattr in group if vattr not in f])
-                            division=len(f)
-                            self.fitmodel(df, grouping, aggList, division)
+                            self.fitmodel(df, perm, aggList, None)
+                        if len(group)==4:
+                            for f in [(group[0],group[2]),(group[1],group[3])]:
+                                df_start=time()
+                                df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(f),con=self.conn)
+                                self.time['df']+=time()-df_start
+                                grouping=tuple([fattr for fattr in f]+[vattr for vattr in group if vattr not in f])
+                                division=len(f)
+                                self.fitmodel(df, grouping, aggList, division)
                     self.dropAgg()
         else:#self.algorithm=='optimized'
             cols=[col for col in grouping_attr]
             n=len(cols)
+            #test_start
+#             all_group={}
+#             for size in range(min(4,n),1,-1):
+#                 for comb in combinations(cols,size):
+#                     for fsize in range(size-1,0,-1):
+#                         for f in combinations(comb,fsize):
+#                             if f not in all_group:
+#                                 all_group[f]=set()
+#                             all_group[f].add(tuple([v for v in comb if v not in f]))
+#                             
+#             fit_group={}
+            #test_end
             if user:
                 up=n
             else:#without user question, need to make sure some attribute is left out for aggregate
@@ -218,7 +250,7 @@ class PatternFinder:
             combs=combinations([i for i in range(n)],min(4,up))
             for comb in combs:
                 grouping=[cols[i] for i in comb]
-                self.aggQuery(grouping, aList)
+                #self.aggQuery(grouping, aList)
                 perms=permutations(comb,len(comb))
                 for perm in perms:
                     self.failedf=set()#reset failed f for each permutation
@@ -248,17 +280,8 @@ class PatternFinder:
                         continue
                     else:
                         group=tuple([cols[i] for i in perm])
-                        
-                        aggList=[]
-                        for a in aList:
-                            if a in grouping:
-                                continue
-                            if a=='*':
-                                aggList.append('count(*)')
-                            else:
-                                aggList.append('sum('+a+')')
                                 
-                        self.rollupQuery(group, pre, d_index, aggList)
+                        self.rollupQuery(group, pre, d_index, aList)
                         group_size=d_index#d_index might change
                         fd_detect_start=time()
                         if self.fd_check:
@@ -301,13 +324,38 @@ class PatternFinder:
                                 condition=' and '.join(['g_'+group[k]+'=0' if k<j else 'g_'+group[k]+'=1'
                                                         for k in range(group_size)])
                                 df_start=time()
+                                aggList=[]
+                                for a in aList:
+                                    if a in prefix:
+                                        continue
+                                    if a=='*':
+                                        aggList.append('count(*)')
+                                    else:
+                                        aggList.append('sum('+a+')')
                                 agg=['\"'+func+'\"' for func in aggList]                              
                                 df=pd.read_sql('SELECT '+','.join(prefix)+','+','.join(agg)+' FROM grouping WHERE '+condition,
                                                con=self.conn)
+
                                 self.time['df']+=time()-df_start                                
                                 self.fitmodel(df,prefix,aggList,division)
+                                #test start
+                                #self.addTestGroup(fit_group,prefix,division)
+                                #test end
                         self.dropRollup()
-                self.dropAgg()    
+                #self.dropAgg()
+            #test start
+#             dif={}
+#             for key in all_group:
+#                 if key not in fit_group:
+#                     dif[key]=all_group[key]
+#                 else:
+#                     for v in all_group[key]:
+#                         if v not in fit_group[key]:
+#                             if key not in dif:
+#                                 dif[key]=set()
+#                             dif[key].add(v)
+#             print(dif)
+            #test end
         if self.glob:
             insert_start=time()
             self.conn.execute("INSERT INTO revised."+self.table+"_global values"+','.join(self.glob))
@@ -373,16 +421,23 @@ class PatternFinder:
         self.conn.execute(query)
         self.time['aggregate']+=time()-start
     
-    def rollupQuery(self, group, pre, d_index, aggList):
+    def rollupQuery(self, group, pre, d_index, aList):
         start=time()
         grouping=",".join([attr+", GROUPING("+attr+") as g_"+attr for attr in group[:d_index]])
 #        gsets=','.join(['('+','.join(group[:prefix])+')' for prefix in range(d_index,pre,-1)])
-        agg=['SUM(\"'+func+'\") AS '+'\"'+func+'\"' for func in aggList]
+        ind=','.join(['g_'+attr for attr in group[:d_index]])
+        #agg=['SUM(\"'+func+'\") AS '+'\"'+func+'\"' for func in aggList]
+        agg=[]
+        for a in aList:
+            if a=='*':
+                agg.append('count(*) AS \"count(*)\"')
+            else:
+                agg.append('sum(CAST('+a+' AS NUMERIC)) AS \"sum('+a+')\"')
         self.conn.execute('CREATE TEMP TABLE grouping AS '+
                         'SELECT '+grouping+','+','.join(agg)+
 #                        ' FROM agg GROUP BY GROUPING SETS('+gsets+')'+
-                        ' FROM agg GROUP BY ROLLUP('+','.join(group)+')'+
-                        ' ORDER BY '+','.join(group[:d_index]))
+                        ' FROM '+self.table+' GROUP BY ROLLUP('+','.join(group[:d_index])+')'+
+                        ' ORDER BY '+','.join(group[:d_index-1]))
         self.time['aggregate']+=time()-start
         
     def dropRollup(self):
@@ -716,9 +771,12 @@ class PatternFinder:
                 self.glob.append(self.addGlobal(f,v,agg,'linear',self.theta_l,lamb_l))
                           
     def addLocal(self,f,f_val,v,agg,model,theta,describe,param):#left here
-        f="'"+str(f).replace("'","")+"'"
-        f_val="'"+str(f_val).replace("'","")+"'"
-        v="'"+str(v).replace("'","")+"'"
+#         f="'"+str(f).replace("'","")+"'"
+#         f_val="'"+str(f_val).replace("'","")+"'"
+#         v="'"+str(v).replace("'","")+"'"
+        f='ARRAY'+str(list(f))
+        f_val='ARRAY'+str([str(val) for val in f_val])
+        v='ARRAY'+str(list(v))
         agg="'"+agg+"'"
         model="'"+model+"'"
         theta="'"+str(theta)+"'"
@@ -728,8 +786,10 @@ class PatternFinder:
     
     
     def addGlobal(self,f,v,agg,model,theta,lamb):
-        f="'"+str(f).replace("'","")+"'"
-        v="'"+str(v).replace("'","")+"'"
+#         f="'"+str(f).replace("'","")+"'"
+#         v="'"+str(v).replace("'","")+"'"
+        f='ARRAY'+str(list(f))
+        v='ARRAY'+str(list(v))
         agg="'"+agg+"'"
         model="'"+model+"'"
         theta="'"+str(theta)+"'"
@@ -748,9 +808,9 @@ class PatternFinder:
         
         self.conn.execute('DROP TABLE IF EXISTS revised.'+self.table+'_local;')    
         self.conn.execute('create table IF NOT EXISTS revised.'+self.table+'_local('+
-                     'fixed varchar,'+
-                     'fixed_value varchar,'+
-                     'variable varchar,'+
+                     'fixed varchar[],'+
+                     'fixed_value varchar[],'+
+                     'variable varchar[],'+
                      'agg varchar,'+
                      'model varchar,'+
                      'theta float,'+
@@ -759,8 +819,8 @@ class PatternFinder:
         
         self.conn.execute('DROP TABLE IF EXISTS revised.'+self.table+'_global')
         self.conn.execute('create table IF NOT EXISTS revised.'+self.table+'_global('+
-                     'fixed varchar,'+
-                     'variable varchar,'+
+                     'fixed varchar[],'+
+                     'variable varchar[],'+
                      'agg varchar,'+
                      'model varchar,'+
                      'theta float,'+
@@ -781,3 +841,13 @@ class PatternFinder:
         attributes.append('description')
         values.append(description)
         self.conn.execute('INSERT INTO time_detail_fd('+','.join(attributes)+') values('+','.join(values)+')')
+        
+    #below is for testing purpose
+    def addTestGroup(self,fit_group,prefix,division):
+        if division:
+            if prefix[:division] not in fit_group:
+                fit_group[prefix[:division]]=set()
+            fit_group[prefix[:division]].add(prefix[division:])
+        else:
+            for div in range(1,len(prefix)):
+                self.addTestGroup(fit_group, prefix, div)

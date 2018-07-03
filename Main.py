@@ -5,7 +5,7 @@ from PatternFinder import PatternFinder
 def main():
     #pc=PC()
     #config=input("Connection config (host port dbname username password):\n").split()
-    config=['216.47.152.61','5432','postgres','antiprov','test']
+    config=['localhost','5432','postgres','antiprov','antiprov']
     try:
         engine = sa.create_engine(
                 'postgresql://'+config[3]+':'+config[4]+'@'
@@ -15,7 +15,8 @@ def main():
         print(ex)
         sys.exit(1)
     
-    p=PatternFinder(engine.connect(),'publication')
+    p=PatternFinder(engine.connect(),table='crime_exp_8',fit=True,reg_package='sklearn',
+                    supp_l=15,supp_g=15,fd_check=False,supp_inf=False,algorithm='optimized')
     #fd=[(['A'],['B']),(['A','B'],['C'])]
     #p.addFd(fd)
     p.findPattern()
