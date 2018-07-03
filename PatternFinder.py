@@ -361,7 +361,7 @@ class PatternFinder:
             #test end
         if self.glob:
             insert_start=time()
-            self.conn.execute("INSERT INTO revised."+self.table+"_global values"+','.join(self.glob))
+            self.conn.execute("INSERT INTO "+self.pattern_schema+"."+self.table+"_global values"+','.join(self.glob))
             self.time['insertion']+=time()-insert_start
         self.time['total']=time()-start
         self.insertTime('\''+self.table+'_num_global:'+str(len(self.glob))+' algo:'+self.algorithm+'\'')
