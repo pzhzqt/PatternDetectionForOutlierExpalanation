@@ -646,7 +646,7 @@ class PatternFinder:
         
         if pattern:
             insert_start=time()
-            self.conn.execute("INSERT INTO revised."+self.table+"_local values"+','.join(pattern))        
+            self.conn.execute("INSERT INTO "+self.pattern_schema+"."+self.table+"_local values"+','.join(pattern))        
             self.time['insertion']+=time()-insert_start
     def fitmodel_with_division(self, fd, group, aggList, division): 
         #fd=d.sort_values(by=f).reset_index(drop=True)
@@ -758,7 +758,7 @@ class PatternFinder:
         
         if pattern:
             insert_start=time()
-            self.conn.execute("INSERT INTO revised."+self.table+"_local values"+','.join(pattern))
+            self.conn.execute("INSERT INTO "+self.pattern_schema+"."+self.table+"_local values"+','.join(pattern))
             self.time['insertion']+=time()-insert_start
         
         for agg in valid_c_f:
