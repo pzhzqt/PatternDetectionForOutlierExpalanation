@@ -187,7 +187,7 @@ class PatternFinder:
         start=time()
         if not user:
             grouping_attr=self.grouping_attr
-            aList=self.num+['*']
+            aList=self.summable+['*']
             
         else:
             grouping_attr=user['group']
