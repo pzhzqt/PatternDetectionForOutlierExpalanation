@@ -15,7 +15,7 @@ class PatternFinder:
     theta_c=None #theta for constant regression
     theta_l=None #theta for linear regression
     lamb=None #lambda
-    cat=None #categorical attributes
+    summable=None #attributes that are summable
     num=None #numeric attributes
     schema=None #list of all attributes
     n=None#number of attributes
@@ -40,7 +40,7 @@ class PatternFinder:
     pattern_schema=None #schema for storing pattern
     
     def __init__(self, conn, table, fit=True, theta_c=0.5, theta_l=0.5, lamb=0.5, dist_thre=0.99,
-                 reg_package='sklearn',supp_l=15,supp_g=15,fd_check=False,supp_inf=False,algorithm='test',
+                 reg_package='statsmodels',supp_l=15,supp_g=15,fd_check=False,supp_inf=False,algorithm='test',
                  pattern_schema='pub'):
         self.conn=conn
         self.theta_c=theta_c
@@ -79,7 +79,6 @@ class PatternFinder:
         for i in range(self.n):
             self.attr_index[self.schema[i]]=i
         
-        self.cat=[]
         self.num=[]
         self.grouping_attr=[]
         self.num_rows=pd.read_sql("SELECT count(*) as num from "+self.table,self.conn)['num'][0]
@@ -100,7 +99,35 @@ class PatternFinder:
                 self.conn.execute("SELECT CAST("+col+" AS NUMERIC) FROM "+self.table)
                 self.num.append(col)
             except:
-                self.cat.append(col)
+                continue
+        self.summable=self.num
+        
+    def setNumeric(self):
+        print("Current Numeric: ")
+        print(self.num)
+        if input('Redefine? (y/n, default n)')=='y':
+            num=[]
+            for attr in self.num:
+                keep=input('Keep '+attr+' as Numeric?(y/n,default y)')
+                if keep=='n':
+                    continue
+                else:
+                    num.append(attr)
+            self.num=num
+            self.summable=[attr for attr in self.summable if attr in num]
+        
+    def setSummable(self):
+        print("Current Summable: ")
+        print(self.summable)
+        if input('Redefine? (y/n, default n)')=='y':
+            summable=[]
+            for attr in self.summable:
+                keep=input('Keep '+attr+' as Summable?(y/n,default y)')
+                if keep=='n':
+                    continue
+                else:
+                    summable.append(attr)
+            self.summable=summable
     
     def addFd(self, fd):
         '''
@@ -191,45 +218,55 @@ class PatternFinder:
             self.failedf=set()
             for size in range(2,min(4,len(grouping_attr))+1):
                 for group in combinations(grouping_attr,size):
-                    aggList=[]
-                    for a in aList:
-                        if a in group:
+                    #check if group contains superkey
+                    for i in self.superkey:
+                        if set(i).issubset(group):
+                            break
+                    else:#doesn't contain superkey
+                        aggList=[]
+                        for a in aList:
+                            if a in group:
+                                continue
+                            if a=='*':
+                                aggList.append('count')
+                            else:
+                                aggList.append('sum_'+a+'')
+                        if len(aggList)==0:
                             continue
-                        if a=='*':
-                            aggList.append('count(*)')
-                        else:
-                            aggList.append('sum('+a+')')
-                    if len(aggList)==0:
-                        continue
-                    self.aggQuery(group, aList)
-                    if self.algorithm=='naive_alternative':
-                        for fsize in range(size-1,0,-1):
-                            for f in combinations(group,fsize):
-                                df_start=time()
-                                df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(f),con=self.conn)
-                                self.time['df']+=time()-df_start
-                                grouping=tuple([fattr for fattr in f]+[vattr for vattr in group if vattr not in f])
-                                division=len(f)
-                                self.fitmodel(df, grouping, aggList, division)
-                    else:#algorithm=='test'
+                        self.aggQuery(group, aList)
+                        fd_detect_start=time()
+                        isSuperkey=False
                         if self.fd_check:
                             cur_rows=pd.read_sql('SELECT count(*) as num FROM agg',con=self.conn)['num'][0]
                             if cur_rows>=self.num_rows*self.dist_thre:
                                 self.superkey.add(group)
-                        for i in range(len(group)):
-                            perm=group[i:]+group[:i]
-                            df_start=time()
-                            df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(perm[:-1]),con=self.conn)
-                            self.time['df']+=time()-df_start
-                            self.fitmodel(df, perm, aggList, None)
-                        if len(group)==4:
-                            for f in [(group[0],group[2]),(group[1],group[3])]:
-                                df_start=time()
-                                df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(f),con=self.conn)
-                                self.time['df']+=time()-df_start
-                                grouping=tuple([fattr for fattr in f]+[vattr for vattr in group if vattr not in f])
-                                division=len(f)
-                                self.fitmodel(df, grouping, aggList, division)
+                                isSuperkey=True
+                        self.time['fd_detect']+=time()-fd_detect_start
+                        if not isSuperkey:
+                            if self.algorithm=='naive_alternative':
+                                for fsize in range(size-1,0,-1):
+                                    for f in combinations(group,fsize):
+                                        df_start=time()
+                                        df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(f),con=self.conn)
+                                        self.time['df']+=time()-df_start
+                                        grouping=tuple([fattr for fattr in f]+[vattr for vattr in group if vattr not in f])
+                                        division=len(f)
+                                        self.fitmodel(df, grouping, aggList, division)
+                            else:#algorithm=='test'
+                                for i in range(len(group)):
+                                    perm=group[i:]+group[:i]
+                                    df_start=time()
+                                    df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(perm[:-1]),con=self.conn)
+                                    self.time['df']+=time()-df_start
+                                    self.fitmodel(df, perm, aggList, None)
+                                if len(group)==4:
+                                    for f in [(group[0],group[2]),(group[1],group[3])]:
+                                        df_start=time()
+                                        df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(f),con=self.conn)
+                                        self.time['df']+=time()-df_start
+                                        grouping=tuple([fattr for fattr in f]+[vattr for vattr in group if vattr not in f])
+                                        division=len(f)
+                                        self.fitmodel(df, grouping, aggList, division)
                     self.dropAgg()
         else:#self.algorithm=='optimized'
             cols=[col for col in grouping_attr]
@@ -417,9 +454,9 @@ class PatternFinder:
             if a in g:
                 continue
             if a=='*':
-                agg.append('count(*) AS \"count(*)\"')
+                agg.append('count(*) AS \"count\"')
             else:
-                agg.append('sum(CAST('+a+' AS NUMERIC)) AS \"sum('+a+')\"')
+                agg.append('sum(CAST('+a+' AS NUMERIC)) AS \"sum_'+a+'\"')
         query="CREATE TEMP TABLE agg as SELECT "+group+","+','.join(agg)+" FROM "+self.table+" GROUP BY "+group
         self.conn.execute(query)
         self.time['aggregate']+=time()-start
@@ -501,7 +538,7 @@ class PatternFinder:
                 #fitting linear
                 if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v[i])
                                     or
-                                    (self.reg_package=='statsmodels' and all(attr in self.num for attr in v[i])))):
+                                    (self.reg_package=='statsmodels' and any(attr in self.num for attr in v[i])))):
     
                     if self.reg_package=='sklearn':   
                         lr=LinearRegression()
@@ -512,7 +549,8 @@ class PatternFinder:
                         param.append(lr.intercept_.tolist())
                         param="'"+str(param)+"'"
                     else: #statsmodels
-                        lr=sm.ols(agg+'~'+'+'.join(v[i]),data=df,missing='drop').fit()
+                        lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in v[i]])
+                                  ,data=df,missing='drop').fit()
                         theta_l=lr.rsquared_adj
                         param=Json(dict(lr.params))
                     
@@ -686,7 +724,7 @@ class PatternFinder:
                 #fitting linear
                 if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v)
                                     or
-                                    (self.reg_package=='statsmodels' and all(attr in self.num for attr in v)))):
+                                    (self.reg_package=='statsmodels' and any(attr in self.num for attr in v)))):
     
                     if self.reg_package=='sklearn': 
                         lr=LinearRegression()
@@ -697,7 +735,8 @@ class PatternFinder:
                         param.append(lr.intercept_.tolist())
                         param="'"+str(param)+"'"
                     else: #statsmodels
-                        lr=sm.ols(agg+'~'+'+'.join(v),data=df,missing='drop').fit()
+                        lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in v]),
+                                  data=df,missing='drop').fit()
                         theta_l=lr.rsquared_adj
                         param=Json(dict(lr.params))
                         
