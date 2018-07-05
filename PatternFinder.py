@@ -86,9 +86,14 @@ class PatternFinder:
         #check uniqueness, grouping_attr contains only non-unique attributes
         unique=pd.read_sql("SELECT attname,n_distinct FROM pg_stats WHERE tablename='"+table+"'",self.conn)
         for tup in unique.itertuples():
-            if (tup.n_distinct<0 and tup.n_distinct > -self.dist_thre) or \
-            (tup.n_distinct>0 and tup.n_distinct<self.num_rows*self.dist_thre):
-                self.grouping_attr.append(tup.attname)
+            #if (tup.n_distinct<0 and tup.n_distinct > -self.dist_thre) or \
+            #(tup.n_distinct>0 and tup.n_distinct<self.num_rows*self.dist_thre):
+             #   self.grouping_attr.append(tup.attname)
+             
+            #aggresive approach:
+            if tup.n_distinct<0 or tup.n_distinct>500:
+                continue
+            self.grouping_attr.append(tup.attname)
                 
         for col in self.schema:
 #             if col=='year':
@@ -628,13 +633,13 @@ class PatternFinder:
                     continue
             for agg in valid_c_f[i]:
                 lamb_c=valid_c_f[i][agg]/num_f[i]
-                if lamb_c>self.lamb:
+                if valid_c_f[i][agg]>=self.supp_g and lamb_c>self.lamb:
                     #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
                     self.glob.append(self.addGlobal(f[i],v[i],agg,'const',self.theta_c,lamb_c))
             
             for agg in valid_l_f[i]:
                 lamb_l=valid_l_f[i][agg]/num_f[i]
-                if lamb_l>self.lamb:
+                if valid_l_f[i][agg]>=self.supp_g and lamb_l>self.lamb:
                     #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
                     self.glob.append(self.addGlobal(f[i],v[i],agg,'linear',self.theta_l,lamb_l))
         
@@ -802,13 +807,13 @@ class PatternFinder:
         
         for agg in valid_c_f:
             lamb_c=valid_c_f[agg]/num_f
-            if lamb_c>self.lamb:
+            if valid_c_f[agg]>=self.supp_g and lamb_c>self.lamb:
                 #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
                 self.glob.append(self.addGlobal(f,v,agg,'const',self.theta_c,lamb_c))
                 
         for agg in valid_l_f:
-            lamb_l=valid_l_f/num_f
-            if lamb_l>self.lamb:
+            lamb_l=valid_l_f[agg]/num_f
+            if valid_l_f[agg]>=self.supp_g and lamb_l>self.lamb:
                 #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
                 self.glob.append(self.addGlobal(f,v,agg,'linear',self.theta_l,lamb_l))
                           
