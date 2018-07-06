@@ -38,10 +38,11 @@ class PatternFinder:
     supp_inf=None #toggle on/off support inference rules
     algorithm=None #{'optimized','naive','naive_alternative'}
     pattern_schema=None #schema for storing pattern
+    group_rows=None #track # of rows for each group
     
     def __init__(self, conn, table, fit=True, theta_c=0.5, theta_l=0.5, lamb=0.5, dist_thre=0.99,
                  reg_package='statsmodels',supp_l=15,supp_g=15,fd_check=False,supp_inf=False,algorithm='test',
-                 pattern_schema='pub'):
+                 pattern_schema='crime'):
         self.conn=conn
         self.theta_c=theta_c
         self.theta_l=theta_l
@@ -85,15 +86,21 @@ class PatternFinder:
 #         self.fd={}
         #check uniqueness, grouping_attr contains only non-unique attributes
         unique=pd.read_sql("SELECT attname,n_distinct FROM pg_stats WHERE tablename='"+table+"'",self.conn)
+        self.group_rows={}
         for tup in unique.itertuples():
             #if (tup.n_distinct<0 and tup.n_distinct > -self.dist_thre) or \
             #(tup.n_distinct>0 and tup.n_distinct<self.num_rows*self.dist_thre):
              #   self.grouping_attr.append(tup.attname)
              
             #aggresive approach:
-            if tup.n_distinct<0 or tup.n_distinct>500:
+            if tup.n_distinct<0:
+                n_distinct=-tup.n_distinct*self.num_rows
+            else:
+                n_distinct=tup.n_distinct
+            if n_distinct>500:
                 continue
             self.grouping_attr.append(tup.attname)
+            self.group_rows[frozenset([tup.attname])]=n_distinct
                 
         for col in self.schema:
 #             if col=='year':
@@ -161,24 +168,33 @@ class PatternFinder:
         if division=None, check all possible divisions, and return boolean[]
         '''
         if division:
-            if not self.fd:
+#             if not self.fd:
+#                 return True
+#             f=set()# indices of fixed attributes
+#             attrs=set()# indices of all attributes
+#             for i in range(len(group)):
+#                 if i<division:
+#                     f.add(self.attr_index[group[i]])
+#                 attrs.add(self.attr_index[group[i]])
+#                 
+#             for i in range(len(group)):
+#                 cur=self.attr_index[group[i]]
+#                 if i<division: #group[i] in f
+#                     if cur in closure(self.fd,self.n,f-{cur}):
+#                         return False
+#                 else: #group[i] in v
+#                     if cur in closure(self.fd,self.n,attrs-{cur}):
+#                         return False
+#                     
+#             return True
+            if not self.fd_check:
                 return True
-            f=set()# indices of fixed attributes
-            attrs=set()# indices of all attributes
-            for i in range(len(group)):
-                if i<division:
-                    f.add(self.attr_index[group[i]])
-                attrs.add(self.attr_index[group[i]])
-                
-            for i in range(len(group)):
-                cur=self.attr_index[group[i]]
-                if i<division: #group[i] in f
-                    if cur in closure(self.fd,self.n,f-{cur}):
-                        return False
-                else: #group[i] in v
-                    if cur in closure(self.fd,self.n,attrs-{cur}):
-                        return False
-                    
+            if division==1:
+                return True
+            row=self.group_rows[frozenset(group[:division])]
+            for i in group[:division]:
+                if self.group_rows[frozenset([k for k in group[:division] if k!=i])]==row:
+                    return False
             return True
         else:
             n=len(group)
@@ -246,6 +262,7 @@ class PatternFinder:
                             if cur_rows>=self.num_rows*self.dist_thre:
                                 self.superkey.add(group)
                                 isSuperkey=True
+                            self.group_rows[frozenset(group)]=cur_rows
                         self.time['fd_detect']+=time()-fd_detect_start
                         if not isSuperkey:
                             if self.algorithm=='naive_alternative':
@@ -554,6 +571,12 @@ class PatternFinder:
                         param.append(lr.intercept_.tolist())
                         param="'"+str(param)+"'"
                     else: #statsmodels
+                        num_cat=1
+                        for attr in v[i]:
+                            if attr not in self.num:
+                                num_cat*=self.group_rows[frozenset([attr])]
+                        if num_cat>500:
+                            return
                         lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in v[i]])
                                   ,data=df,missing='drop').fit()
                         theta_l=lr.rsquared_adj
@@ -740,6 +763,12 @@ class PatternFinder:
                         param.append(lr.intercept_.tolist())
                         param="'"+str(param)+"'"
                     else: #statsmodels
+                        num_cat=1
+                        for attr in v:
+                            if attr not in self.num:
+                                num_cat*=self.group_rows[frozenset([attr])]
+                        if num_cat>500:
+                            return
                         lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in v]),
                                   data=df,missing='drop').fit()
                         theta_l=lr.rsquared_adj
