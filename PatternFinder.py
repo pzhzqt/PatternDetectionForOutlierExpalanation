@@ -8,6 +8,8 @@ from numpy import percentile,mean
 from time import time
 from permtest import *
 from fd import closure
+from random import shuffle
+from math import ceil
 
 class PatternFinder:
     conn=None
@@ -39,10 +41,12 @@ class PatternFinder:
     algorithm=None #{'optimized','naive','naive_alternative'}
     pattern_schema=None #schema for storing pattern
     group_rows=None #track # of rows for each group
+    sampling=None
     
-    def __init__(self, conn, table, fit=True, theta_c=0.5, theta_l=0.5, lamb=0.5, dist_thre=0.99,
+    def __init__(self, conn, table, fit=True, sampling=True, theta_c=0.5, theta_l=0.5, lamb=0.5, dist_thre=0.9,
                  reg_package='statsmodels',supp_l=15,supp_g=15,fd_check=False,supp_inf=False,algorithm='test',
-                 pattern_schema='crime'):
+                 pattern_schema='perform'):
+        self.sampling=sampling
         self.conn=conn
         self.theta_c=theta_c
         self.theta_l=theta_l
@@ -58,8 +62,7 @@ class PatternFinder:
         self.pattern_schema=pattern_schema
         self.superkey=set()
         self.fd_check=fd_check
-        if fd_check:
-            self.fd=[]
+        self.fd=[]
         self.supp_inf=supp_inf
         if algorithm not in {'naive','naive_alternative','optimized','test'}:
             print('Invalid input for algorithm, reset to default')
@@ -85,22 +88,20 @@ class PatternFinder:
         self.num_rows=pd.read_sql("SELECT count(*) as num from "+self.table,self.conn)['num'][0]
 #         self.fd={}
         #check uniqueness, grouping_attr contains only non-unique attributes
-        unique=pd.read_sql("SELECT attname,n_distinct FROM pg_stats WHERE tablename='"+table+"'",self.conn)
+        unique=pd.read_sql("SELECT "+','.join(["count(distinct "+attr+") as "+attr for attr in self.schema])+ " FROM "+self.table,
+                                              self.conn)                                        
         self.group_rows={}
-        for tup in unique.itertuples():
+        for attr in self.schema:
             #if (tup.n_distinct<0 and tup.n_distinct > -self.dist_thre) or \
             #(tup.n_distinct>0 and tup.n_distinct<self.num_rows*self.dist_thre):
              #   self.grouping_attr.append(tup.attname)
              
             #aggresive approach:
-            if tup.n_distinct<0:
-                n_distinct=-tup.n_distinct*self.num_rows
-            else:
-                n_distinct=tup.n_distinct
-            if n_distinct>500:
+            n_distinct=unique[attr][0]
+            if n_distinct>=self.num_rows*self.dist_thre:
                 continue
-            self.grouping_attr.append(tup.attname)
-            self.group_rows[frozenset([tup.attname])]=n_distinct
+            self.grouping_attr.append(attr)
+            self.group_rows[frozenset([attr])]=n_distinct
                 
         for col in self.schema:
 #             if col=='year':
@@ -193,7 +194,9 @@ class PatternFinder:
                 return True
             row=self.group_rows[frozenset(group[:division])]
             for i in group[:division]:
-                if self.group_rows[frozenset([k for k in group[:division] if k!=i])]==row:
+                if self.group_rows[frozenset([k for k in group[:division] if k!=i])]>=row*self.dist_thre:
+#                    print(frozenset([k for k in group[:division] if k!=i]))
+#                    print(i)
                     return False
             return True
         else:
@@ -283,12 +286,13 @@ class PatternFinder:
                                     self.fitmodel(df, perm, aggList, None)
                                 if len(group)==4:
                                     for f in [(group[0],group[2]),(group[1],group[3])]:
-                                        df_start=time()
-                                        df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(f),con=self.conn)
-                                        self.time['df']+=time()-df_start
                                         grouping=tuple([fattr for fattr in f]+[vattr for vattr in group if vattr not in f])
                                         division=len(f)
-                                        self.fitmodel(df, grouping, aggList, division)
+                                        if self.validateFd(grouping, division):
+                                            df_start=time()
+                                            df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(f),con=self.conn)
+                                            self.time['df']+=time()-df_start
+                                            self.fitmodel(df, grouping, aggList, division)
                     self.dropAgg()
         else:#self.algorithm=='optimized'
             cols=[col for col in grouping_attr]
@@ -429,19 +433,26 @@ class PatternFinder:
     def formCube(self, a, agg, attr):
         group=",".join(["CAST("+num+" AS NUMERIC)" for num in attr if num in self.num]+
                         [cat for cat in attr if cat not in self.num])
-        grouping=",".join(["CAST("+num+" AS NUMERIC), GROUPING(CAST("+num+" AS NUMERIC)) as g_"+num
+        grouping=",".join(["GROUPING(CAST("+num+" AS NUMERIC)) as g_"+num
                         for num in attr if num in self.num]+
-            [cat+", GROUPING("+cat+") as g_"+cat for cat in attr if cat not in self.num])
+            ["GROUPING("+cat+") as g_"+cat for cat in attr if cat not in self.num])
         if a in self.num:
             qa="CAST("+a+" AS NUMERIC)"
         else:
             qa=a
-        self.conn.execute("DROP TABLE IF EXISTS cube")
-        query="CREATE TABLE cube AS SELECT "+agg+"("+qa+") AS \""+agg+'('+a+")\", "+grouping+" FROM "+self.table+" GROUP BY CUBE("+group+")"
+        self.conn.execute("DROP TABLE IF EXISTS perform.cube")
+        if agg=='count':
+            name='count'
+        else:
+            name='sum_'+a
+        query="CREATE TABLE perform.cube AS SELECT "+agg+"("+qa+") AS \""+name+"\", "+group+','+grouping+" FROM "+self.table+"\
+        "+"GROUP BY CUBE("+group+") having "+'+'.join(['grouping('+att+')' if att not in self.num 
+                                else "GROUPING(CAST("+att+" AS NUMERIC))" for att in attr])+'>='+str(len(attr)-4)
+        
         self.conn.execute(query)        
      
     def dropCube(self):
-        self.conn.execute("DROP TABLE cube;")
+        self.conn.execute("DROP TABLE perform.cube;")
         
     def cubeQuery(self, g, f, cols):
         #=======================================================================
@@ -454,14 +465,18 @@ class PatternFinder:
         if len(g)<len(cols):
             unused=" and ".join(["g_"+b+"=1" for b in cols if b not in g])
             res=res+" and "+unused
-        return "SELECT * FROM cube where "+res+" ORDER BY "+",".join(f)
+        return "SELECT * FROM perform.cube where "+res+" ORDER BY "+",".join(f)
     
     def fit_naive(self,f,group,a,agg,cols):
         self.failedf=set()#to not trigger error
         fd=pd.read_sql(self.cubeQuery(group, f, cols),self.conn)
         g=tuple([att for att in f]+[attr for attr in group if attr not in f])
         division=len(f)
-        self.fitmodel_with_division(fd, g, [agg+'('+a+')'], division)
+        if a=='*':
+            aggList=['count']
+        else:
+            aggList=[agg+'_'+a]
+        self.fitmodel_with_division(fd, g, aggList, division)
         
     def findPattern_inline(self,group,a,agg):
         #loop through permutations of group
@@ -504,12 +519,12 @@ class PatternFinder:
         
     def dropRollup(self):
         drop_start=time()
-        self.conn.execute('DROP TABLE grouping')
+        self.conn.execute('DROP TABLE if exists grouping')
         self.time['drop']+=time()-drop_start
         
     def dropAgg(self):
         drop_start=time()
-        self.conn.execute('DROP TABLE agg')
+        self.conn.execute('DROP TABLE if exists agg')
         self.time['drop']+=time()-drop_start
         
     def fitmodel(self, fd, group, aggList, division):
@@ -560,7 +575,7 @@ class PatternFinder:
                 #fitting linear
                 if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v[i])
                                     or
-                                    (self.reg_package=='statsmodels' and any(attr in self.num for attr in v[i])))):
+                                    (self.reg_package=='statsmodels' and all(attr in self.num for attr in v[i])))):
     
                     if self.reg_package=='sklearn':   
                         lr=LinearRegression()
@@ -571,15 +586,18 @@ class PatternFinder:
                         param.append(lr.intercept_.tolist())
                         param="'"+str(param)+"'"
                     else: #statsmodels
-                        num_cat=1
-                        for attr in v[i]:
-                            if attr not in self.num:
-                                num_cat*=self.group_rows[frozenset([attr])]
-                        if num_cat>500:
+                        if n<=len(v[i])+1:#negative R^2 for sure
                             return
+                        #num_cat=1
+                        #for attr in v[i]:
+                            #if attr not in self.num:
+                                #num_cat*=self.group_rows[frozenset([attr])]
+                        #if num_cat>500:
+                            #return
                         lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in v[i]])
                                   ,data=df,missing='drop').fit()
-                        theta_l=lr.rsquared_adj
+                        #theta_l=lr.rsquared_adj
+                        theta_l=chisquare(df[agg],lr.predict())[1]
                         param=Json(dict(lr.params))
                     
                     if theta_l and theta_l>self.theta_l:
@@ -637,18 +655,37 @@ class PatternFinder:
                     #fit(fd[oldIndex[i]:],fval,i,n)
         self.time['innerloop']+=time()-inner_loop_start
         
+
         for i in range(size):
             if len(f_dict[i])<self.supp_g:
                 if self.supp_inf:#if toggle is on
                     self.failedf.add(tuple(f[i]))
                 supp_valid[i]=False
             else:
-                for fval in f_dict[i]:
-                    indices=f_dict[i][fval]
-                    if len(indices)==2: #indices=[oldIndex,index]
-                        fit(fd[indices[0]:indices[1]],fval,i,indices[1]-indices[0])
-                    else: #indices=[oldIndex]
-                        fit(fd[indices[0]:],fval,i,oldKey.Index-indices[0]+1)
+                if self.sampling:
+                    randlst=list(f_dict[i])
+                    shuffle(randlst)
+                    n_f=num_f[i]
+                    X=1.96*0.5*0.5/(0.05*0.05)
+                    samplesize=ceil(n_f*X/(n_f+X-1))
+                    cur=0
+                    for fval in randlst:
+                        indices=f_dict[i][fval]
+                        if len(indices)==2: #indices=[oldIndex,index]
+                            fit(fd[indices[0]:indices[1]],fval,i,indices[1]-indices[0])
+                        else: #indices=[oldIndex]
+                            fit(fd[indices[0]:],fval,i,oldKey.Index-indices[0]+1)
+                        cur+=1
+                        if cur==samplesize:
+                            num_f[i]=samplesize
+                            break
+                else:
+                    for fval in f_dict[i]:
+                        indices=f_dict[i][fval]
+                        if len(indices)==2: #indices=[oldIndex,index]
+                            fit(fd[indices[0]:indices[1]],fval,i,indices[1]-indices[0])
+                        else: #indices=[oldIndex]
+                            fit(fd[indices[0]:],fval,i,oldKey.Index-indices[0]+1)
                     
         #sifting global            
         for i in range(size):
@@ -752,7 +789,7 @@ class PatternFinder:
                 #fitting linear
                 if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v)
                                     or
-                                    (self.reg_package=='statsmodels' and any(attr in self.num for attr in v)))):
+                                    (self.reg_package=='statsmodels' and all(attr in self.num for attr in v)))):
     
                     if self.reg_package=='sklearn': 
                         lr=LinearRegression()
@@ -763,15 +800,18 @@ class PatternFinder:
                         param.append(lr.intercept_.tolist())
                         param="'"+str(param)+"'"
                     else: #statsmodels
-                        num_cat=1
-                        for attr in v:
-                            if attr not in self.num:
-                                num_cat*=self.group_rows[frozenset([attr])]
-                        if num_cat>500:
+                        #num_cat=1
+                        #for attr in v:
+                            #if attr not in self.num:
+                                #num_cat*=self.group_rows[frozenset([attr])]
+                        #if num_cat>500:
+                            #return
+                        if n<=len(v)+1:#negative R^2 for sure
                             return
                         lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in v]),
                                   data=df,missing='drop').fit()
-                        theta_l=lr.rsquared_adj
+                        #theta_l=lr.rsquared_adj
+                        theta_l=chisquare(df[agg],lr.predict())[1]
                         param=Json(dict(lr.params))
                         
                     if theta_l and theta_l>self.theta_l:
@@ -822,12 +862,31 @@ class PatternFinder:
                 self.failedf.add(group[:division])
             return
         else:
-            for fval in f_dict:
-                indices=f_dict[fval]
-                if len(indices)==2: #indices=[oldIndex,index]
-                    fit(fd[indices[0]:indices[1]],f,fval,v,indices[1]-indices[0])
-                else: #indices=[oldIndex]
-                    fit(fd[indices[0]:],f,fval,v,oldKey.Index-indices[0]+1)
+            if self.sampling:
+                randlst=list(f_dict)
+                shuffle(randlst)
+                n_f=num_f
+                X=1.96*0.5*0.5/(0.05*0.05)
+                samplesize=ceil(n_f*X/(n_f+X-1))
+                cur=0
+                for fval in randlst:
+                    indices=f_dict[fval]
+                    if len(indices)==2: #indices=[oldIndex,index]
+                        fit(fd[indices[0]:indices[1]],f,fval,v,indices[1]-indices[0])
+                    else: #indices=[oldIndex]
+                        fit(fd[indices[0]:],f,fval,v,oldKey.Index-indices[0]+1)
+                    cur+=1
+                    if cur==samplesize:
+                        num_f=samplesize
+                        break
+            else:
+                for fval in f_dict:
+                    indices=f_dict[fval]
+                    if len(indices)==2: #indices=[oldIndex,index]
+                        fit(fd[indices[0]:indices[1]],f,fval,v,indices[1]-indices[0])
+                    else: #indices=[oldIndex]
+                        fit(fd[indices[0]:],f,fval,v,oldKey.Index-indices[0]+1)
+
         
         if pattern:
             insert_start=time()
@@ -851,7 +910,7 @@ class PatternFinder:
 #         f_val="'"+str(f_val).replace("'","")+"'"
 #         v="'"+str(v).replace("'","")+"'"
         f='ARRAY'+str(list(f)).replace('"','')
-        f_val='ARRAY'+str([str(val) for val in f_val]).replace('"','')
+        f_val='ARRAY'+str([str(val).replace("'","") for val in f_val]).replace('"','')
         v='ARRAY'+str(list(v)).replace('"','')
         agg="'"+agg+"'"
         model="'"+model+"'"
