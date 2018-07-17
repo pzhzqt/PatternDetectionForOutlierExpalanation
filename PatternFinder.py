@@ -288,7 +288,10 @@ class PatternFinder:
                                     for f in [(group[0],group[2]),(group[1],group[3])]:
                                         grouping=tuple([fattr for fattr in f]+[vattr for vattr in group if vattr not in f])
                                         division=len(f)
-                                        if self.validateFd(grouping, division):
+                                        fd_check_start=time()
+                                        fd_val=self.validateFd(grouping, division)
+                                        self.time['check_fd']+=time()-fd_check_start
+                                        if fd_val:
                                             df_start=time()
                                             df=pd.read_sql('SELECT * FROM agg ORDER BY '+','.join(f),con=self.conn)
                                             self.time['df']+=time()-df_start
@@ -431,6 +434,7 @@ class PatternFinder:
         
         
     def formCube(self, a, agg, attr):
+        cube_start=time()
         group=",".join(["CAST("+num+" AS NUMERIC)" for num in attr if num in self.num]+
                         [cat for cat in attr if cat not in self.num])
         grouping=",".join(["GROUPING(CAST("+num+" AS NUMERIC)) as g_"+num
@@ -449,10 +453,13 @@ class PatternFinder:
         "+"GROUP BY CUBE("+group+") having "+'+'.join(['grouping('+att+')' if att not in self.num 
                                 else "GROUPING(CAST("+att+" AS NUMERIC))" for att in attr])+'>='+str(len(attr)-4)
         
-        self.conn.execute(query)        
+        self.conn.execute(query)    
+        self.time['aggregate']+=time()-cube_start
      
     def dropCube(self):
+        drop_start=time()
         self.conn.execute("DROP TABLE perform.cube;")
+        self.time['drop']+=time()-drop_start
         
     def cubeQuery(self, g, f, cols):
         #=======================================================================
@@ -469,7 +476,9 @@ class PatternFinder:
     
     def fit_naive(self,f,group,a,agg,cols):
         self.failedf=set()#to not trigger error
+        df_start=time()
         fd=pd.read_sql(self.cubeQuery(group, f, cols),self.conn)
+        time['df']+=time()-df_start
         g=tuple([att for att in f]+[attr for attr in group if attr not in f])
         division=len(f)
         if a=='*':
@@ -666,7 +675,7 @@ class PatternFinder:
                     randlst=list(f_dict[i])
                     shuffle(randlst)
                     n_f=num_f[i]
-                    X=1.96*0.5*0.5/(0.05*0.05)
+                    X=1.96*1.96*0.5*0.5/(0.05*0.05)
                     samplesize=ceil(n_f*X/(n_f+X-1))
                     cur=0
                     for fval in randlst:
@@ -866,7 +875,7 @@ class PatternFinder:
                 randlst=list(f_dict)
                 shuffle(randlst)
                 n_f=num_f
-                X=1.96*0.5*0.5/(0.05*0.05)
+                X=1.96*1.96*0.5*0.5/(0.05*0.05)
                 samplesize=ceil(n_f*X/(n_f+X-1))
                 cur=0
                 for fval in randlst:
