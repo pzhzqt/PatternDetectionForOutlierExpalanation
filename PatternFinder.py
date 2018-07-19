@@ -43,9 +43,9 @@ class PatternFinder:
     group_rows=None #track # of rows for each group
     sampling=None
     
-    def __init__(self, conn, table, fit=True, sampling=True, theta_c=0.5, theta_l=0.5, lamb=0.5, dist_thre=0.9,
+    def __init__(self, conn, table, fit=True, sampling=False, theta_c=0.5, theta_l=0.5, lamb=0.5, dist_thre=0.9,
                  reg_package='statsmodels',supp_l=15,supp_g=15,fd_check=False,supp_inf=False,algorithm='test',
-                 pattern_schema='perform'):
+                 pattern_schema='dev'):
         self.sampling=sampling
         self.conn=conn
         self.theta_c=theta_c
@@ -64,9 +64,9 @@ class PatternFinder:
         self.fd_check=fd_check
         self.fd=[]
         self.supp_inf=supp_inf
-        if algorithm not in {'naive','naive_alternative','optimized','test'}:
+        if algorithm not in {'naive','naive_alternative','optimized','test','bruteforce'}:
             print('Invalid input for algorithm, reset to default')
-            algorithm='naive_alternative'
+            algorithm='test'
         self.algorithm=algorithm
         self.time={'aggregate':0,'df':0,'regression':0,'insertion':0,'drop':0,'loop':0,
                    'innerloop':0,'fd_detect':0,'check_fd':0,'total':0}
@@ -216,8 +216,101 @@ class PatternFinder:
         else:
             grouping_attr=user['group']
             aList=user['a']
-        
-        if self.algorithm=='naive':
+        if self.algorithm=='bruteforce':
+            for Fsize in range(1,min(4,self.n)):
+                for F in combinations(self.schema,Fsize):
+                    df_start=time()
+                    fs=pd.read_sql('SELECT '+','.join(F)+' FROM '+self.table+' GROUP BY '+','.join(F),self.conn)
+                    self.time['df']+=time()-df_start
+                    for Vsize in range(1,min(4,self.n)-Fsize+1):
+                        for V in combinations([attr for attr in self.schema if attr not in F],Vsize):
+                            for a in aList:
+                                if a in F or a in V:
+                                    continue
+                                if a=='*':
+                                    agg='count'
+                                    aggPattern='count'
+                                else:
+                                    agg='sum'
+                                    a= 'CAST ('+a+' AS NUMERIC)'
+                                    aggPattern='sum_'+a
+                                num_f=0
+                                valid_c_f=0
+                                valid_l_f=0
+                                pattern=[]
+                                for f in fs.itertuples():
+                                    if None in f[1:]:
+                                        continue
+                                    df_start=time()
+                                    fval=str(f[1:])
+                                    if Fsize==1:
+                                        fval=fval.replace(",", "")
+                                    df=pd.read_sql('SELECT '+','.join(F)+','+','.join(V)+','+agg+'('+a+') FROM '+self.table+
+                                                   ' WHERE ('+','.join(F)+')='+fval+' GROUP BY '+
+                                                   ','.join(F)+','+','.join(V),self.conn)
+                                    self.time['df']+=time()-df_start                                   
+                                    n=len(df)
+                                    if n<self.supp_l:
+                                        continue
+                                    
+                                    reg_start=time()
+                                    describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
+                                              ,percentile(df[agg],50),percentile(df[agg],75)]
+                                    num_f+=1 
+                                    #fitting constant
+                                    theta_c=chisquare(df[agg].dropna())[1]
+                                    if theta_c>self.theta_c:
+                                        valid_c_f+=1
+                                        #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                                        pattern.append(self.addLocal(F,f,V,aggPattern,'const',theta_c,describe,'NULL'))
+                                    #fitting linear
+                                    if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in V)
+                                                        or
+                                                        (self.reg_package=='statsmodels' and all(attr in self.num for attr in V)))):
+                        
+                                        if self.reg_package=='sklearn': 
+                                            lr=LinearRegression()
+                                            lr.fit(df[V],df[agg])
+                                            theta_l=lr.score(df[V],df[agg])
+                                            theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
+                                            param=lr.coef_.tolist()
+                                            param.append(lr.intercept_.tolist())
+                                            param="'"+str(param)+"'"
+                                        else: #statsmodels
+                                            #num_cat=1
+                                            #for attr in v:
+                                                #if attr not in self.num:
+                                                    #num_cat*=self.group_rows[frozenset([attr])]
+                                            #if num_cat>500:
+                                                #return
+                                            
+                                            lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in V]),
+                                                      data=df,missing='drop').fit()
+                                            #theta_l=lr.rsquared_adj
+                                            theta_l=chisquare(df[agg],lr.predict())[1]
+                                            param=Json(dict(lr.params))
+                                            
+                                        if theta_l and theta_l>self.theta_l:
+                                            valid_l_f+=1
+                                        #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                                            pattern.append(self.addLocal(F,f,V,aggPattern,'linear',theta_l,describe,param))
+                                    self.time['regression']+=time()-reg_start
+                                if pattern:
+                                    insert_start=time()
+                                    self.conn.execute("INSERT INTO "+self.pattern_schema+"."+self.table+"_local values"+','.join(pattern))
+                                    self.time['insertion']+=time()-insert_start
+                                
+                                if num_f:
+                                    lamb_c=valid_c_f/num_f
+                                    if valid_c_f>=self.supp_g and lamb_c>self.lamb:
+                                        #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
+                                        self.glob.append(self.addGlobal(F,V,aggPattern,'const',self.theta_c,lamb_c))
+                                            
+                                    lamb_l=valid_l_f/num_f
+                                    if valid_l_f>=self.supp_g and lamb_l>self.lamb:
+                                        #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
+                                        self.glob.append(self.addGlobal(F,V,aggPattern,'linear',self.theta_l,lamb_l))
+        elif self.algorithm=='naive':
             for a in aList:
                 if not user:
                     if a=='*':#For count, only do a count(*)
@@ -478,7 +571,7 @@ class PatternFinder:
         self.failedf=set()#to not trigger error
         df_start=time()
         fd=pd.read_sql(self.cubeQuery(group, f, cols),self.conn)
-        time['df']+=time()-df_start
+        self.time['df']+=time()-df_start
         g=tuple([att for att in f]+[attr for attr in group if attr not in f])
         division=len(f)
         if a=='*':
@@ -557,6 +650,17 @@ class PatternFinder:
         f_dict=[{} for i in range(1,size+1)]
         check_fd_start=time()
         fd_valid=self.validateFd(group)
+        sample_invalid=[{} for i in range(size)]
+        global_dev_pos=[{} for i in range(size)]
+        global_dev_neg=[{} for i in range(size)]
+        for i in range(size):
+            for agg in aggList:
+                global_dev_pos[i][agg]={}
+                global_dev_pos[i][agg]['l']=float('-inf')
+                global_dev_pos[i][agg]['c']=float('-inf')
+                global_dev_neg[i][agg]={}
+                global_dev_neg[i][agg]['l']=float('inf')
+                global_dev_neg[i][agg]['c']=float('inf')
         self.time['check_fd']+=time()-check_fd_start
         
         if not any(fd_valid) or not any(supp_valid):
@@ -567,56 +671,69 @@ class PatternFinder:
                 return
             reg_start=time()
             for agg in aggList:
-                describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
-                          ,percentile(df[agg],50),percentile(df[agg],75)]
-                                    
-                #fitting constant
-                theta_c=chisquare(df[agg].dropna())[1]
-                if theta_c>self.theta_c:
-                    nonlocal valid_c_f
-                    try:
-                        valid_c_f[i][agg]+=1
-                    except KeyError:
-                        valid_c_f[i][agg]=1
-                    #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                    pattern.append(self.addLocal(f[i],fval,v[i],agg,'const',theta_c,describe,'NULL'))
+                nonlocal global_dev_pos,global_dev_neg
+                if agg not in sample_invalid[i] or 'c' not in sample_invalid[i][agg]:
+                    avg=mean(df[agg])
+                    describe=[avg,mode(df[agg]),percentile(df[agg],25)
+                              ,percentile(df[agg],50),percentile(df[agg],75)]
+                    dev_pos=max(df[agg])-avg
+                    dev_neg=min(df[agg])-avg
+                    #fitting constant
+                    theta_c=chisquare(df[agg].dropna())[1]
+                    if theta_c>self.theta_c:
+                        nonlocal valid_c_f
+                        try:
+                            valid_c_f[i][agg]+=1
+                        except KeyError:
+                            valid_c_f[i][agg]=1
+                        global_dev_pos[i][agg]['c']=max(global_dev_pos[i][agg]['c'],dev_pos)
+                        global_dev_neg[i][agg]['c']=min(global_dev_neg[i][agg]['c'],dev_neg)
+                        #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                        pattern.append(self.addLocal(f[i],fval,v[i],agg,'const',theta_c,describe,'NULL',
+                                                     dev_pos,dev_neg))
                   
                 #fitting linear
-                if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v[i])
-                                    or
-                                    (self.reg_package=='statsmodels' and all(attr in self.num for attr in v[i])))):
-    
-                    if self.reg_package=='sklearn':   
-                        lr=LinearRegression()
-                        lr.fit(df[v[i]],df[agg])
-                        theta_l=lr.score(df[v[i]],df[agg])
-                        theta_l=1-(1-theta_l)*(n-1)/(n-len(v[i])-1)
-                        param=lr.coef_.tolist()
-                        param.append(lr.intercept_.tolist())
-                        param="'"+str(param)+"'"
-                    else: #statsmodels
-                        if n<=len(v[i])+1:#negative R^2 for sure
-                            return
-                        #num_cat=1
-                        #for attr in v[i]:
-                            #if attr not in self.num:
-                                #num_cat*=self.group_rows[frozenset([attr])]
-                        #if num_cat>500:
-                            #return
-                        lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in v[i]])
-                                  ,data=df,missing='drop').fit()
-                        #theta_l=lr.rsquared_adj
-                        theta_l=chisquare(df[agg],lr.predict())[1]
-                        param=Json(dict(lr.params))
-                    
-                    if theta_l and theta_l>self.theta_l:
-                        nonlocal valid_l_f
-                        try:
-                            valid_l_f[i][agg]+=1
-                        except KeyError:
-                            valid_l_f[i][agg]=1
-                    #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                        pattern.append(self.addLocal(f[i],fval,v[i],agg,'linear',theta_l,describe,param))
+                if agg not in sample_invalid[i] or 'l' not in sample_invalid[i][agg]:
+                    if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v[i])
+                                        or
+                                        (self.reg_package=='statsmodels' and all(attr in self.num for attr in v[i])))):
+        
+                        if self.reg_package=='sklearn':   
+                            lr=LinearRegression()
+                            lr.fit(df[v[i]],df[agg])
+                            theta_l=lr.score(df[v[i]],df[agg])
+                            theta_l=1-(1-theta_l)*(n-1)/(n-len(v[i])-1)
+                            param=lr.coef_.tolist()
+                            param.append(lr.intercept_.tolist())
+                            param="'"+str(param)+"'"
+                        else: #statsmodels
+                            if n<=len(v[i])+1:#negative R^2 for sure
+                                return
+                            #num_cat=1
+                            #for attr in v[i]:
+                                #if attr not in self.num:
+                                    #num_cat*=self.group_rows[frozenset([attr])]
+                            #if num_cat>500:
+                                #return
+                            lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in v[i]])
+                                      ,data=df,missing='drop').fit()
+                            #theta_l=lr.rsquared_adj
+                            theta_l=chisquare(df[agg],lr.predict())[1]
+                            param=Json(dict(lr.params))
+                            dev_pos=max(lr.resid)
+                            dev_neg=min(lr.resid)
+                        
+                        if theta_l and theta_l>self.theta_l:
+                            nonlocal valid_l_f
+                            try:
+                                valid_l_f[i][agg]+=1
+                            except KeyError:
+                                valid_l_f[i][agg]=1
+                            global_dev_pos[i][agg]['l']=max(global_dev_pos[i][agg]['l'],dev_pos)
+                            global_dev_neg[i][agg]['l']=min(global_dev_neg[i][agg]['l'],dev_neg)
+                        #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                            pattern.append(self.addLocal(f[i],fval,v[i],agg,'linear',theta_l,describe,param,
+                                                         dev_pos,dev_neg))
                     
             self.time['regression']+=time()-reg_start
             
@@ -686,8 +803,16 @@ class PatternFinder:
                             fit(fd[indices[0]:],fval,i,oldKey.Index-indices[0]+1)
                         cur+=1
                         if cur==samplesize:
-                            num_f[i]=samplesize
-                            break
+                            for agg in valid_c_f[i]:
+                                if valid_c_f[i][agg]/samplesize<self.lamb:
+                                    sample_invalid[i][agg]={'c'}
+                            
+                            for agg in valid_l_f[i]:
+                                if valid_l_f[i][agg]/samplesize<self.lamb:
+                                    try:
+                                        sample_invalid[i][agg].add('l')
+                                    except KeyError:
+                                        sample_invalid[i][agg]={'l'}
                 else:
                     for fval in f_dict[i]:
                         indices=f_dict[i][fval]
@@ -701,16 +826,22 @@ class PatternFinder:
             if not fd_valid[i] or not supp_valid[i]:
                     continue
             for agg in valid_c_f[i]:
+                if agg in sample_invalid[i] and 'c' in sample_invalid[i][agg]:
+                    continue
                 lamb_c=valid_c_f[i][agg]/num_f[i]
                 if valid_c_f[i][agg]>=self.supp_g and lamb_c>self.lamb:
                     #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
-                    self.glob.append(self.addGlobal(f[i],v[i],agg,'const',self.theta_c,lamb_c))
+                    self.glob.append(self.addGlobal(f[i],v[i],agg,'const',self.theta_c,lamb_c,
+                                                    global_dev_pos[i][agg]['c'],global_dev_neg[i][agg]['c']))
             
             for agg in valid_l_f[i]:
+                if agg in sample_invalid[i] and 'l' in sample_invalid[i][agg]:
+                    continue
                 lamb_l=valid_l_f[i][agg]/num_f[i]
                 if valid_l_f[i][agg]>=self.supp_g and lamb_l>self.lamb:
                     #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
-                    self.glob.append(self.addGlobal(f[i],v[i],agg,'linear',self.theta_l,lamb_l))
+                    self.glob.append(self.addGlobal(f[i],v[i],agg,'linear',self.theta_l,lamb_l,
+                                                    global_dev_pos[i][agg]['l'],global_dev_neg[i][agg]['l']))
         
         if not self.fit:
             return 
@@ -774,6 +905,16 @@ class PatternFinder:
         valid_c_f={}
         f=list(group[:division])
         v=list(group[division:])  
+        sample_invalid={}
+        global_dev_pos={}
+        global_dev_neg={}
+        for agg in aggList:
+            global_dev_pos[agg]={}
+            global_dev_pos[agg]['l']=float('-inf')
+            global_dev_pos[agg]['c']=float('-inf')
+            global_dev_neg[agg]={}
+            global_dev_neg[agg]['l']=float('inf')
+            global_dev_neg[agg]['c']=float('inf')
         #df:dataframe n:length    
         pattern=[]
         def fit(df,f,fval,v,n):
@@ -781,56 +922,69 @@ class PatternFinder:
                 return
             reg_start=time()
             for agg in aggList:
-                describe=[mean(df[agg]),mode(df[agg]),percentile(df[agg],25)
-                                              ,percentile(df[agg],50),percentile(df[agg],75)]
-                                    
-                #fitting constant
-                theta_c=chisquare(df[agg].dropna())[1]
-                if theta_c>self.theta_c:
-                    nonlocal valid_c_f
-                    try:
-                        valid_c_f[agg]+=1
-                    except KeyError:
-                        valid_c_f[agg]=1
-                    #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
-                    pattern.append(self.addLocal(f,fval,v,agg,'const',theta_c,describe,'NULL'))
+                nonlocal global_dev_pos,global_dev_neg
+                if agg not in sample_invalid or 'c' not in sample_invalid[agg]:
+                    avg=mean(df[agg])
+                    describe=[avg,mode(df[agg]),percentile(df[agg],25)
+                                                  ,percentile(df[agg],50),percentile(df[agg],75)]
+                    dev_pos=max(df[agg])-avg
+                    dev_neg=min(df[agg])-avg                    
+                    #fitting constant
+                    theta_c=chisquare(df[agg].dropna())[1]
+                    if theta_c>self.theta_c:
+                        nonlocal valid_c_f
+                        try:
+                            valid_c_f[agg]+=1
+                        except KeyError:
+                            valid_c_f[agg]=1
+                        global_dev_pos[agg]['c']=max(global_dev_pos[agg]['c'],dev_pos)
+                        global_dev_neg[agg]['c']=min(global_dev_neg[agg]['c'],dev_neg)
+                        #self.pc.add_local(f,oldKey,v,a,agg,'const',theta_c)
+                        pattern.append(self.addLocal(f,fval,v,agg,'const',theta_c,describe,'NULL',
+                                                     dev_pos,dev_neg))
                     
                 #fitting linear
-                if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v)
-                                    or
-                                    (self.reg_package=='statsmodels' and all(attr in self.num for attr in v)))):
-    
-                    if self.reg_package=='sklearn': 
-                        lr=LinearRegression()
-                        lr.fit(df[v],df[agg])
-                        theta_l=lr.score(df[v],df[agg])
-                        theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
-                        param=lr.coef_.tolist()
-                        param.append(lr.intercept_.tolist())
-                        param="'"+str(param)+"'"
-                    else: #statsmodels
-                        #num_cat=1
-                        #for attr in v:
-                            #if attr not in self.num:
-                                #num_cat*=self.group_rows[frozenset([attr])]
-                        #if num_cat>500:
-                            #return
-                        if n<=len(v)+1:#negative R^2 for sure
-                            return
-                        lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in v]),
-                                  data=df,missing='drop').fit()
-                        #theta_l=lr.rsquared_adj
-                        theta_l=chisquare(df[agg],lr.predict())[1]
-                        param=Json(dict(lr.params))
-                        
-                    if theta_l and theta_l>self.theta_l:
-                        nonlocal valid_l_f
-                        try:
-                            valid_l_f[agg]+=1
-                        except KeyError:
-                            valid_l_f[agg]=1
-                    #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
-                        pattern.append(self.addLocal(f,fval,v,agg,'linear',theta_l,describe,param))
+                if agg not in sample_invalid or 'l' not in sample_invalid[agg]:
+                    if  theta_c!=1 and ((self.reg_package=='sklearn' and all(attr in self.num for attr in v)
+                                        or
+                                        (self.reg_package=='statsmodels' and all(attr in self.num for attr in v)))):
+        
+                        if self.reg_package=='sklearn': 
+                            lr=LinearRegression()
+                            lr.fit(df[v],df[agg])
+                            theta_l=lr.score(df[v],df[agg])
+                            theta_l=1-(1-theta_l)*(n-1)/(n-len(v)-1)
+                            param=lr.coef_.tolist()
+                            param.append(lr.intercept_.tolist())
+                            param="'"+str(param)+"'"
+                        else: #statsmodels
+                            #num_cat=1
+                            #for attr in v:
+                                #if attr not in self.num:
+                                    #num_cat*=self.group_rows[frozenset([attr])]
+                            #if num_cat>500:
+                                #return
+                            if n<=len(v)+1:#negative R^2 for sure
+                                return
+                            lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in v]),
+                                      data=df,missing='drop').fit()
+                            #theta_l=lr.rsquared_adj
+                            theta_l=chisquare(df[agg],lr.predict())[1]
+                            param=Json(dict(lr.params))
+                            dev_pos=max(lr.resid)
+                            dev_neg=min(lr.resid)
+                            
+                        if theta_l and theta_l>self.theta_l:
+                            nonlocal valid_l_f
+                            try:
+                                valid_l_f[agg]+=1
+                            except KeyError:
+                                valid_l_f[agg]=1
+                            global_dev_pos[agg]['l']=max(globa_dev_pos[agg]['l'],dev_pos)
+                            global_dev_neg[agg]['l']=min(global_dev_neg[agg]['l'],dev_neg)
+                        #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
+                            pattern.append(self.addLocal(f,fval,v,agg,'linear',theta_l,describe,param,
+                                                         dev_pos,dev_neg))
                         
             self.time['regression']+=time()-reg_start
         
@@ -886,8 +1040,16 @@ class PatternFinder:
                         fit(fd[indices[0]:],f,fval,v,oldKey.Index-indices[0]+1)
                     cur+=1
                     if cur==samplesize:
-                        num_f=samplesize
-                        break
+                        for agg in valid_c_f:
+                            if valid_c_f[agg]/samplesize<self.lamb:
+                                sample_invalid[agg]={'c'}
+                        for agg in valid_l_f:
+                            if valid_l_f[agg]/samplesize<self.lamb:
+                                try:
+                                    sample_invalid[agg].add('l')
+                                except KeyError:
+                                    sample_invalid[agg]={'l'}
+                                
             else:
                 for fval in f_dict:
                     indices=f_dict[fval]
@@ -903,18 +1065,24 @@ class PatternFinder:
             self.time['insertion']+=time()-insert_start
         
         for agg in valid_c_f:
+            if agg in sample_invalid and 'c' in sample_invalid[agg]:
+                continue
             lamb_c=valid_c_f[agg]/num_f
             if valid_c_f[agg]>=self.supp_g and lamb_c>self.lamb:
                 #self.pc.add_global(f,v,a,agg,'const',self.theta_c,lamb_c)
-                self.glob.append(self.addGlobal(f,v,agg,'const',self.theta_c,lamb_c))
+                self.glob.append(self.addGlobal(f,v,agg,'const',self.theta_c,lamb_c,
+                                                global_dev_pos[agg]['c'],global_dev_neg[agg]['c']))
                 
         for agg in valid_l_f:
+            if agg in sample_invalid and 'l' in sample_invalid[agg]:
+                continue
             lamb_l=valid_l_f[agg]/num_f
             if valid_l_f[agg]>=self.supp_g and lamb_l>self.lamb:
                 #self.pc.add_global(f,v,a,agg,'linear',str(self.theta_l),str(lamb_l))
-                self.glob.append(self.addGlobal(f,v,agg,'linear',self.theta_l,lamb_l))
+                self.glob.append(self.addGlobal(f,v,agg,'linear',self.theta_l,lamb_l,
+                                                global_dev_pos[agg]['l'],global_dev_neg[agg]['l']))
                           
-    def addLocal(self,f,f_val,v,agg,model,theta,describe,param):#left here
+    def addLocal(self,f,f_val,v,agg,model,theta,describe,param,dev_pos,dev_neg):#left here
 #         f="'"+str(f).replace("'","")+"'"
 #         f_val="'"+str(f_val).replace("'","")+"'"
 #         v="'"+str(v).replace("'","")+"'"
@@ -926,10 +1094,10 @@ class PatternFinder:
         theta="'"+str(theta)+"'"
         describe="'"+str(describe).replace("'","")+"'"
         #return 'insert into '+self.table+'_local values('+','.join([f,f_val,v,a,agg,model,theta,describe,param])+');'
-        return '('+','.join([f,f_val,v,agg,model,theta,describe,str(param)])+')'
+        return '('+','.join([f,f_val,v,agg,model,theta,describe,str(param),str(dev_pos),str(dev_neg)])+')'
     
     
-    def addGlobal(self,f,v,agg,model,theta,lamb):
+    def addGlobal(self,f,v,agg,model,theta,lamb,dev_pos,dev_neg):
 #         f="'"+str(f).replace("'","")+"'"
 #         v="'"+str(v).replace("'","")+"'"
         f='ARRAY'+str(list(f)).replace('"','')
@@ -939,7 +1107,7 @@ class PatternFinder:
         theta="'"+str(theta)+"'"
         lamb="'"+str(lamb)+"'"
         #return 'insert into '+self.table+'_global values('+','.join([f,v,a,agg,model,theta,lamb])+');'
-        return '('+','.join([f,v,agg,model,theta,lamb])+')'
+        return '('+','.join([f,v,agg,model,theta,lamb,str(dev_pos),str(dev_neg)])+')'
          
     
     def createTable(self,pattern_schema):
@@ -959,7 +1127,9 @@ class PatternFinder:
                      'model varchar,'+
                      'theta float,'+
                      'stats varchar,'+
-                     'param '+type+');')
+                     'param '+type+','+
+                     'dev_pos float,'+
+                     'dev_neg float);')
         
         self.conn.execute('DROP TABLE IF EXISTS '+pattern_schema+'.'+self.table+'_global')
         self.conn.execute('create table IF NOT EXISTS '+pattern_schema+'.'+self.table+'_global('+
@@ -968,12 +1138,14 @@ class PatternFinder:
                      'agg varchar,'+
                      'model varchar,'+
                      'theta float,'+
-                     'lambda float);')
+                     'lambda float, '+
+                     'dev_pos float,'+
+                     'dev_neg float);')
         
         attr=''
         for key in self.time:
             attr+=key+' varchar,'
-        self.conn.execute('create table IF NOT EXISTS time_detail_fd('+
+        self.conn.execute('create table IF NOT EXISTS time_naive('+
                           'id serial primary key,'+
                           attr+
                           'description varchar);')
@@ -984,7 +1156,7 @@ class PatternFinder:
         values=[str(self.time[i]) for i in attributes]
         attributes.append('description')
         values.append(description)
-        self.conn.execute('INSERT INTO time_detail_fd('+','.join(attributes)+') values('+','.join(values)+')')
+        self.conn.execute('INSERT INTO time_naive('+','.join(attributes)+') values('+','.join(values)+')')
         
     #below is for testing purpose
     def addTestGroup(self,fit_group,prefix,division):
