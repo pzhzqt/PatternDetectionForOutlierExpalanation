@@ -61,7 +61,6 @@ class Synthetic:
         fdom=pd.read_sql('select distinct '+','.join(F)+' from '+self.table,con=self.conn)
         fnum=int(len(fdom)*F_ratio) #total to be done
         vdom=pd.read_sql('select distinct '+','.join(V)+' from '+self.table,con=self.conn)
-        self.num+=1
         self.conn.execute('DROP TABLE IF EXISTS '+self.schema+'.'+self.table+'_'+str(self.num))
         self.conn.execute('CREATE TABLE '+self.schema+'.'+self.table+'_'+str(self.num)+
                           ' AS SELECT * FROM '+self.table+

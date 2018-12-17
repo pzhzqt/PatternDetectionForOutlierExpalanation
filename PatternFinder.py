@@ -43,7 +43,7 @@ class PatternFinder:
     group_rows=None #track # of rows for each group
     sampling=None
     
-    def __init__(self, conn, table, fit=True, sampling=False, theta_c=0.5, theta_l=0.5, lamb=0.5, dist_thre=0.9,
+    def __init__(self, conn, table, fit=True, sampling=False, theta_c=0.1, theta_l=0.1, lamb=0.1, dist_thre=0.9,
                  reg_package='statsmodels',supp_l=15,supp_g=15,fd_check=False,supp_inf=False,algorithm='test',
                  pattern_schema='dev'):
         self.sampling=sampling
@@ -286,8 +286,8 @@ class PatternFinder:
                                             
                                             lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in V]),
                                                       data=df,missing='drop').fit()
-                                            #theta_l=lr.rsquared_adj
-                                            theta_l=chisquare(df[agg],lr.predict())[1]
+                                            theta_l=lr.rsquared_adj
+                                            #theta_l=chisquare(df[agg],lr.predict())[1]
                                             param=Json(dict(lr.params))
                                             
                                         if theta_l and theta_l>self.theta_l:
@@ -717,8 +717,8 @@ class PatternFinder:
                                 #return
                             lr=sm.ols(agg+'~'+'+'.join([attr if attr in self.num else 'C('+attr+')' for attr in v[i]])
                                       ,data=df,missing='drop').fit()
-                            #theta_l=lr.rsquared_adj
-                            theta_l=chisquare(df[agg],lr.predict())[1]
+                            theta_l=lr.rsquared_adj
+                            #theta_l=chisquare(df[agg],lr.predict())[1]
                             param=Json(dict(lr.params))
                             dev_pos=max(lr.resid)
                             dev_neg=min(lr.resid)
@@ -980,7 +980,7 @@ class PatternFinder:
                                 valid_l_f[agg]+=1
                             except KeyError:
                                 valid_l_f[agg]=1
-                            global_dev_pos[agg]['l']=max(globa_dev_pos[agg]['l'],dev_pos)
+                            global_dev_pos[agg]['l']=max(global_dev_pos[agg]['l'],dev_pos)
                             global_dev_neg[agg]['l']=min(global_dev_neg[agg]['l'],dev_neg)
                         #self.pc.add_local(f,oldKey,v,a,agg,'linear',theta_l)
                             pattern.append(self.addLocal(f,fval,v,agg,'linear',theta_l,describe,param,
